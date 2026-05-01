@@ -11,7 +11,6 @@ typedef struct icmp_packet_s
     uint16_t    checksum;
     uint16_t    id;
     uint16_t    sequence;
-    char*       payload;
 } icmp_packet_t;
 
 typedef enum icmp_type_e
@@ -19,5 +18,8 @@ typedef enum icmp_type_e
     ICMP_ECHO_REPLY = 0,
     ICMP_ECHO_REQUEST = 8,
 } icmp_type_e;
+
+icmp_packet_t create_echo_request();
+icmp_packet_t create_icmp_packet(icmp_type_e packet_type);
 
 #endif

@@ -1,7 +1,8 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror
 
-SRCS=
+SRCS= \
+main.c \
 ping.c \
 terminal_output.c
 
