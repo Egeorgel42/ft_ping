@@ -5,8 +5,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-static uint32_t do_sum(void *obj, size_t byte_size)
-{
+static uint32_t do_sum(void *obj, size_t byte_size) {
     uint32_t sum = 0;
     size_t two_byte_size = byte_size / 2;
     if (byte_size % 2){
@@ -21,8 +20,7 @@ static uint32_t do_sum(void *obj, size_t byte_size)
     return sum;
 }
 
-uint16_t get_checksum(void *obj, size_t byte_size)
-{
+uint16_t get_checksum(void *obj, size_t byte_size) {
     uint32_t sum = do_sum(obj, byte_size);
     sum = ~sum;
     if (sum == 0) {
@@ -31,8 +29,7 @@ uint16_t get_checksum(void *obj, size_t byte_size)
     return sum;
 }
 
-bool verify_checksum(void *obj, size_t byte_size)
-{
+bool verify_checksum(void *obj, size_t byte_size) {
     uint32_t sum = do_sum(obj, byte_size);
     if ((uint16_t)sum != 0xFFFF) {
         return false;
