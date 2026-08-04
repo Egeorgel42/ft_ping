@@ -1,26 +1,28 @@
 #ifndef TERMINAL_OUTPUT_H
-# define TERMINAL_OUTPUT_H
+#define TERMINAL_OUTPUT_H
+#include "compiler.h"
 
-# define PROGRAM_NAME "ft_ping"
-# define USAGE_ERR "%s: usage error: %s\n", PROGRAM_NAME
-# define ICMP_TYPE_ERR "%s: Invalid ICMP type\n", PROGRAM_NAME
-# define CHECKSUM_SIZE_ERR "%s: Unexpected Checksum size, data is not 2byte aligned\n", PROGRAM_NAME
-# define HELP_MESSAGE \
+#define PROGRAM_NAME "ft_ping"
+
+#define USAGE_ERR			PROGRAM_NAME ": usage error: %s\n"
+#define ICMP_TYPE_ERR		PROGRAM_NAME ": Invalid ICMP type\n"
+#define CHECKSUM_SIZE_ERR	PROGRAM_NAME ": Unexpected Checksum size, data is not 2byte aligned\n"
+#define HELP_MESSAGE \
 "\n\
 Usage:\n\
-    %s [options] <destination>\n\
+    " PROGRAM_NAME " [options] <destination>\n\
 Options:\n\
     -h, -?    Show this help message\n\
     -v        Verbose output\n\
-\n", PROGRAM_NAME
-# define INVALID_OPTION "%s: invalid option -- '%c'\n", PROGRAM_NAME
-# define ALLOC_ERR "%s: Memory allocation failed\n", PROGRAM_NAME
+\n"
+#define INVALID_OPTION		PROGRAM_NAME ": invalid option -- '%c'\n" HELP_MESSAGE
+#define ALLOC_ERR 			PROGRAM_NAME ": Memory allocation failed\n"
 
 void error(const char* format, ...);
 void print_message(const char* format, ...);
 
-# define error_if(condition, format, ...) {\
-    if (condition) { \
+#define error_if(condition, format, ...) {\
+    if (BRANCH_UNLIKELY(condition)) { \
         error(format, ##__VA_ARGS__); \
     }} \
 

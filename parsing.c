@@ -28,7 +28,7 @@ const flag_t* init_flag_definition() {
         {'\0', NULL}
     };
     flag_t* flag_alloc = malloc(sizeof(flag_definitions));
-    error_if(flag_alloc == NULL, ALLOC_ERR);
+    error_if(!flag_alloc, ALLOC_ERR);
     memcpy(flag_alloc, flag_definitions, sizeof(flag_definitions));
     return flag_alloc;
 }
@@ -47,8 +47,7 @@ void apply_flags(
             }
         }
         if (!flag_defs[j].flag) {
-            print_message(INVALID_OPTION, input[i].flag);
-            error(HELP_MESSAGE);
+            error(INVALID_OPTION, input[i].flag);
         }
     }
 }
