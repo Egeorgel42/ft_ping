@@ -5,6 +5,7 @@
 #define PROGRAM_NAME "ft_ping"
 
 #define USAGE_ERR			PROGRAM_NAME ": usage error: %s\n"
+#define USAGE_ERR_DEST_REQ  USAGE_ERR, "Destination address required"
 #define ICMP_TYPE_ERR		PROGRAM_NAME ": Invalid ICMP type\n"
 #define CHECKSUM_SIZE_ERR	PROGRAM_NAME ": Unexpected Checksum size, data is not 2byte aligned\n"
 #define HELP_MESSAGE \
@@ -16,6 +17,7 @@ Options:\n\
     -v        Verbose output\n\
 \n"
 #define INVALID_OPTION		PROGRAM_NAME ": invalid option -- '%c'\n" HELP_MESSAGE
+#define OPTION_REQ_ARG		PROGRAM_NAME ": option requires an argument -- '%c'\n" HELP_MESSAGE
 #define ALLOC_ERR 			PROGRAM_NAME ": Memory allocation failed\n"
 
 void error(const char* format, ...);

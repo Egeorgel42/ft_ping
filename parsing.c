@@ -6,7 +6,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static void print_help(ping_config_t *config, const char* arg) {
+typedef const struct {
+    char const	flag;
+	bool const	has_arg;
+    void		(*function)(ping_config_t *config, char const* arg);
+} defined_flag_t;
+
+static void print_help(ping_config_t *config, char const* arg) {
     (void)config;
     (void)arg;
     assert(!arg);
@@ -14,41 +20,55 @@ static void print_help(ping_config_t *config, const char* arg) {
     exit(0);
 }
 
-static void set_verbose_mode(ping_config_t *config, const char* arg) {
+static void set_verbose_mode(ping_config_t *config, char const* arg) {
     (void)arg;
     assert(!arg);
     config->mode = PING_MODE_VERBOSE;
 }
 
-const flag_t* init_flag_definition() {
-    const flag_t flag_definitions[] = {
-        {'h', print_help},
-        {'?', print_help},
-        {'v', set_verbose_mode},
-        {'\0', NULL}
+static void parse_and_apply_argv_flags(char** current_argv, ping_config_t* config) {
+
+    static defined_flag_t const flag_definitions[] = {
+        {'h', false, print_help}, //flag, arg_count, flag_function
+        {'?', false, print_help},
+        {'v', false, set_verbose_mode},
+        {'\0', false, NULL}
     };
-    flag_t* flag_alloc = malloc(sizeof(flag_definitions));
-    error_if(!flag_alloc, ALLOC_ERR);
-    memcpy(flag_alloc, flag_definitions, sizeof(flag_definitions));
-    return flag_alloc;
+
+	if (current_argv[0][0] != '-') {
+		return;
+	}
+	for (size_t i = 1; current_argv[0][i]; i++) {
+		size_t j = 0;
+		for (; flag_definitions[j].flag != '\0'; j++) {
+			if (flag_definitions[j].flag == current_argv[0][i]) {
+				char const* arg = NULL;
+				if (flag_definitions[j].has_arg) {
+					arg = current_argv[0][i + 1]
+							? current_argv[0] + i + 1
+							: current_argv[1];
+					if (arg == NULL) {
+						error(OPTION_REQ_ARG, flag_definitions[j].flag);
+					}
+				}
+				flag_definitions[j].function(config, arg);
+				break;
+			}
+		}
+		if (!flag_definitions[j].flag) {
+			error(INVALID_OPTION, current_argv[0][i]);
+		}
+	}
+
 }
 
-void apply_flags(
+void apply_input_flags(
         ping_config_t* config,
-        flag_input_t* input,
-        const flag_t* flag_defs) {
+        int argc,
+		char** argv) {
 
-    for (size_t i = 0; input[i].flag; i++) {
-        size_t j = 0;
-        for (; flag_defs[j].flag; j++) {
-            if (flag_defs[j].flag == input[i].flag) {
-                flag_defs[j].function(config, input[i].arg);
-                break;
-            }
-        }
-        if (!flag_defs[j].flag) {
-            error(INVALID_OPTION, input[i].flag);
-        }
+    for (int i = 1; i < argc; i++) {
+		parse_and_apply_argv_flags(argv + i, config);
     }
 }
 

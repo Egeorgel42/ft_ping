@@ -31,11 +31,6 @@ typedef struct flag_input_s {
     const char* arg;
 } flag_input_t;
 
-typedef struct flag_s {
-    const char flag;
-    void (*function)(ping_config_t *config, const char* arg);
-} flag_t;
-
 icmp_packet_t create_echo_request();
 icmp_packet_t create_icmp_packet(icmp_type_e packet_type);
 
