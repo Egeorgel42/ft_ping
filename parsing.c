@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 
 typedef const struct {
     char const	flag;
@@ -15,14 +14,14 @@ typedef const struct {
 static void print_help(ping_config_t *config, char const* arg) {
     (void)config;
     (void)arg;
-    assert(!arg);
+    libassert(!arg, "print_help: expected null argument.");
     print_message(HELP_MESSAGE);
     exit(0);
 }
 
 static void set_verbose_mode(ping_config_t *config, char const* arg) {
     (void)arg;
-    assert(!arg);
+    libassert(!arg, "set_verbose_mode: expected null argument.");
     config->mode = PING_MODE_VERBOSE;
 }
 
@@ -47,19 +46,14 @@ static void parse_and_apply_argv_flags(char** current_argv, ping_config_t* confi
 					arg = current_argv[0][i + 1]
 							? current_argv[0] + i + 1
 							: current_argv[1];
-					if (arg == NULL) {
-						error(OPTION_REQ_ARG, flag_definitions[j].flag);
-					}
+					error_if(!arg, OPTION_REQ_ARG, flag_definitions[j].flag);
 				}
 				flag_definitions[j].function(config, arg);
 				break;
 			}
 		}
-		if (!flag_definitions[j].flag) {
-			error(INVALID_OPTION, current_argv[0][i]);
-		}
+		error_if(!flag_definitions[j].flag, INVALID_OPTION, current_argv[0][i]);
 	}
-
 }
 
 void apply_input_flags(

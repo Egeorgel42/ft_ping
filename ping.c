@@ -38,7 +38,7 @@ bool verify_checksum(void *obj, size_t byte_size) {
 }
 
 icmp_packet_t create_echo_request() {
-    icmp_packet_t packet;
+    icmp_packet_t packet = {0};
     static uint16_t sequence_count = 0;
 
     packet.type = ICMP_ECHO_REQUEST;
@@ -47,8 +47,8 @@ icmp_packet_t create_echo_request() {
     packet.sequence = sequence_count++;
     packet.checksum = 0;
     packet.checksum = get_checksum(&packet, sizeof(packet));
-    assert(verify_checksum(&packet, sizeof(packet)));
-
+    libassert(verify_checksum(&packet, sizeof(packet)),
+		"create_echo_request: invalid get/verify checksum parallel");
     return packet;
 }
 
@@ -57,7 +57,6 @@ icmp_packet_t create_icmp_packet(icmp_type_e packet_type) {
         case ICMP_ECHO_REQUEST:
             return create_echo_request();
         default:
-            error(ICMP_TYPE_ERR);
+            ASSERT_UNREACHABLE(ICMP_TYPE_ERR);
     }
-    __builtin_unreachable();
 }

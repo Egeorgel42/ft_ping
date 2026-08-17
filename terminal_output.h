@@ -19,13 +19,24 @@ Options:\n\
 #define INVALID_OPTION		PROGRAM_NAME ": invalid option -- '%c'\n" HELP_MESSAGE
 #define OPTION_REQ_ARG		PROGRAM_NAME ": option requires an argument -- '%c'\n" HELP_MESSAGE
 #define ALLOC_ERR 			PROGRAM_NAME ": Memory allocation failed\n"
+#define ASSERT_ERR			PROGRAM_NAME ": Assert error: %s\n"
 
 void error(const char* format, ...);
 void print_message(const char* format, ...);
 
-#define error_if(condition, format, ...) {\
-    if (BRANCH_UNLIKELY(condition)) { \
-        error(format, ##__VA_ARGS__); \
-    }} \
+#define error_if(condition, format, ...) {			\
+    if (BRANCH_UNLIKELY(condition)) {				\
+        error(format, ##__VA_ARGS__);				\
+    }}
+
+#if defined(NDEBUG)
+	#define libassert(condition, msg) {				\
+		(void)0;									\
+	}
+#else
+	#define libassert(condition, msg) {				\
+		error_if(!condition, ASSERT_ERR, msg); 		\
+	}
+#endif
 
 #endif

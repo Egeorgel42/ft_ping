@@ -16,4 +16,5 @@ void error(const char* format, ...) {
     vfprintf(stderr, format, args);
     va_end(args);
     exit(1);
+	COMPILER_UNREACHABLE();
 }
