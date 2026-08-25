@@ -6,6 +6,7 @@
 
 #define USAGE_ERR			PROGRAM_NAME ": usage error: %s\n"
 #define USAGE_ERR_DEST_REQ  USAGE_ERR, "Destination address required"
+#define UNKNOWN_NAME_ERR	PROGRAM_NAME ": %s: Name or service not known\n"
 #define ICMP_TYPE_ERR		PROGRAM_NAME ": Invalid ICMP type\n"
 #define CHECKSUM_SIZE_ERR	PROGRAM_NAME ": Unexpected Checksum size, data is not 2byte aligned\n"
 #define HELP_MESSAGE \
@@ -20,6 +21,7 @@ Options:\n\
 #define OPTION_REQ_ARG		PROGRAM_NAME ": option requires an argument -- '%c'\n" HELP_MESSAGE
 #define ALLOC_ERR 			PROGRAM_NAME ": Memory allocation failed\n"
 #define ASSERT_ERR			PROGRAM_NAME ": Assert error: %s\n"
+#define SOCKET_ERR			PROGRAM_NAME ": socket error: %s\n"
 
 void error(const char* format, ...);
 void print_message(const char* format, ...);

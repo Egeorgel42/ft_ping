@@ -1,4 +1,4 @@
-#include "parsing.h"
+#include "ping.h"
 #include "terminal_output.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -35,6 +35,7 @@ static void parse_and_apply_argv_flags(char** current_argv, ping_config_t* confi
     };
 
 	if (current_argv[0][0] != '-') {
+		config->destination = current_argv[0];
 		return;
 	}
 	for (size_t i = 1; current_argv[0][i]; i++) {
@@ -64,5 +65,6 @@ void apply_input_flags(
     for (int i = 1; i < argc; i++) {
 		parse_and_apply_argv_flags(argv + i, config);
     }
+	error_if(!config->destination, USAGE_ERR_DEST_REQ);
 }
 
