@@ -21,6 +21,5 @@ void free_circular_buffer(circular_buffer_t* buffer);
 
 #define CIRC_BUFF_WRITE_FULL_SLOT_ERR    PROGRAM_PREFIX_MESSAGE "Attempted to write to non-empty slot in circular buffer at index %d\n"
 #define CIRC_BUFF_POP_EMPTY_SLOT_ERR     PROGRAM_PREFIX_MESSAGE "Attempted to pop empty slot in circular buffer at index %d\n"
-#define CIRC_BUFF_READ_EMPTY_SLOT_ERR    PROGRAM_PREFIX_MESSAGE "Attempted to read from empty slot in circular buffer at index %d\n"
 
 #endif

@@ -24,8 +24,8 @@ $(NAME): $(OBJS)
 release: CFLAGS += -O3 -DNDEBUG
 release: re
 
-debug: CFLAGS += -g3 -O0 -DDEBUG -fsanitize=address,undefined
-debug: LFLAGS += -fsanitize=address,undefined
+debug: CFLAGS += -g3 -O0 -DDEBUG
+debug: LFLAGS += -g3
 debug: re
 
 clean:

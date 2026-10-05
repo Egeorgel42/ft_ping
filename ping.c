@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+#include <time.h>
 
 static uint32_t do_sum(void *obj, size_t byte_size) {
     uint32_t sum = 0;
@@ -48,6 +49,7 @@ icmp_packet_t create_echo_request(ping_config_t *config) {
     packet.checksum = get_checksum(&packet, sizeof(packet));
     libassert(verify_checksum(&packet, sizeof(packet)),
 		"create_echo_request: invalid get/verify checksum parallel");
+    write_element_at_index(&config->stored_transactions, packet.sequence_id, &(ping_transaction_t){.send_time = time(NULL)});
     return packet;
 }
 
@@ -65,7 +67,7 @@ void get_destination_addr(ping_config_t *config) {
         struct addrinfo hints;
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_DGRAM;
+        hints.ai_socktype = 0;
         hints.ai_protocol = IPPROTO_ICMP;
 		struct addrinfo *result = NULL;
 		int ret = getaddrinfo(config->destination, NULL, &hints, &result);

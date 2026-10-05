@@ -17,6 +17,7 @@ circular_buffer_t create_circular_buffer(uint32_t element_size, uint32_t buffer_
         .buffer_size = buffer_size
     };
     error_if(!buffer.buffer, ALLOC_ERR);
+    memset(buffer.buffer, 0, alloc_size);
     return buffer;
 }
 
@@ -46,7 +47,9 @@ void write_element_at_index(circular_buffer_t* buffer, uint32_t index, void cons
 void const* read_element_at_index(circular_buffer_t* buffer, uint32_t index) {
     uint8_t* slot_addr = buffer->buffer + (buffer->element_size * (index % buffer->buffer_size));
     bool const is_slot_used = *(bool*)slot_addr;
-    error_if(!is_slot_used, CIRC_BUFF_READ_EMPTY_SLOT_ERR, index);
+    if (BRANCH_UNLIKELY(!is_slot_used)) {
+        return NULL;
+    }
     slot_addr++;
     return slot_addr;
 }
@@ -54,7 +57,9 @@ void const* read_element_at_index(circular_buffer_t* buffer, uint32_t index) {
 void const* read_element_at_index_and_pop(circular_buffer_t* buffer, uint32_t index) {
     uint8_t* slot_addr = buffer->buffer + (buffer->element_size * (index % buffer->buffer_size));
     bool const is_slot_used = *(bool*)slot_addr;
-    error_if(!is_slot_used, CIRC_BUFF_READ_EMPTY_SLOT_ERR, index);
+    if (BRANCH_UNLIKELY(!is_slot_used)) {
+        return NULL;
+    }
     *(bool*)slot_addr = false;
     slot_addr++;
     return slot_addr;
