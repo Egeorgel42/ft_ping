@@ -6,8 +6,8 @@ LFLAGS=
 SRCS=				\
 main.c				\
 ping.c				\
-terminal_output.c	\
-parsing.c
+parsing.c			\
+util.c				\
 
 OBJS=$(SRCS:.c=.o)
 
