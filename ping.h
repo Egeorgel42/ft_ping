@@ -9,9 +9,13 @@
 #define _DEFAULT_SOURCE
 #endif
 
+#define MAX_READ_SIZE 65535
+
 # include <stdint.h>
 # include <netinet/in.h>
 # include "util.h"
+
+# define MODE_DEF(x) 1 << x
 
 typedef struct {
     uint8_t     type;
@@ -27,26 +31,29 @@ typedef enum {
 } icmp_type_e;
 
 typedef enum {
-    PING_MODE_DEFAULT,
-    PING_MODE_VERBOSE,
+    PING_VERBOSE = MODE_DEF(0),
 } ping_mode_e;
 
 typedef struct {
-    ping_mode_e 	    mode;
+    uint8_t 	        mode;
 	char const* 	    destination;
     uint16_t    	    process_id;
+    uint64_t            next_send_time;
+    uint64_t            interval;
     circular_buffer_t 	stored_transactions;
 	int 		        socket_fd;
 	struct in_addr	    destination_addr;
+    char*               destination_addr_str;
 } ping_config_t;
 
 typedef struct {
-    time_t send_time;
+    uint16_t sequence_id;
+    uint64_t send_time;
 } ping_transaction_t;
 
-void 			apply_input_flags(ping_config_t* config, int argc, char** argv);
-void 			init_config(ping_config_t *config);
-icmp_packet_t	create_echo_request(ping_config_t *config);
-icmp_packet_t	create_icmp_packet(icmp_type_e packet_type, ping_config_t *config);
+void apply_input_flags(ping_config_t* config, int argc, char** argv);
+void init_config(ping_config_t *config);
+void read_and_process_packets(ping_config_t *config);
+bool send_echo_request(ping_config_t *config, bool unsent_packet);
 
 #endif

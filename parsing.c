@@ -22,7 +22,7 @@ static void print_help(ping_config_t *config, char const* arg) {
 static void set_verbose_mode(ping_config_t *config, char const* arg) {
     (void)arg;
     libassert(!arg, "set_verbose_mode: expected null argument.");
-    config->mode = PING_MODE_VERBOSE;
+    config->mode = config->mode | PING_VERBOSE;
 }
 
 static void parse_and_apply_argv_flags(char** current_argv, ping_config_t* config) {

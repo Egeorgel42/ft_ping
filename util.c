@@ -2,6 +2,14 @@
 #include "compiler.h"
 #include "terminal_output.h"
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+
+uint64_t get_time_us() {
+    static struct timespec ts;
+    error_if(clock_gettime(CLOCK_MONOTONIC, &ts) < 0, CLOCK_ERR, strerror(errno));
+    return (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
+}
 
 circular_buffer_t create_circular_buffer(uint32_t element_size, uint32_t buffer_size) {
     libassert(element_size > 0, "create_circular_buffer: element_size must be greater than 0.");
