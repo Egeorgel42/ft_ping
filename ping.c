@@ -11,34 +11,34 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-static uint32_t do_sum(void *obj, size_t byte_size) {
-    uint32_t sum = 0;
-    size_t two_byte_size = byte_size / 2;
-	error_if(byte_size % 2, CHECKSUM_SIZE_ERR);
-    for (size_t i = 0; i < two_byte_size; i++) {
-        sum += ((uint16_t *)obj)[i];
-    }
+static uint32_t fold_checksum(uint32_t sum) {
     while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
+        sum = (sum & 0xFFFFu) + (sum >> 16);
     }
     return sum;
 }
 
-uint16_t get_checksum(void *obj, size_t byte_size) {
-    uint32_t sum = do_sum(obj, byte_size);
-    sum = ~sum;
-    if (sum == 0) {
-        sum = -1;
+static uint32_t do_sum(const void *obj, size_t byte_size) {
+    uint32_t sum = 0;
+    const uint8_t *bytes = (const uint8_t *)obj;
+
+    for (size_t i = 0; i + 1 < byte_size; i += 2) {
+        sum += ((uint32_t)bytes[i] << 8) | bytes[i + 1];
     }
-    return sum;
+    if (byte_size % 2 != 0) {
+        sum += ((uint32_t)bytes[byte_size - 1] << 8);
+    }
+    return fold_checksum(sum);
 }
 
-bool verify_checksum(void *obj, size_t byte_size) {
+uint16_t get_checksum(const void *obj, size_t byte_size) {
     uint32_t sum = do_sum(obj, byte_size);
-    if ((uint16_t)sum != 0xFFFF) {
-        return false;
-    }
-    return true;
+    return (uint16_t)(~sum & 0xFFFFu);
+}
+
+bool verify_checksum(const void *obj, size_t byte_size) {
+    uint32_t sum = do_sum(obj, byte_size);
+    return sum == 0xFFFFu;
 }
 
 icmp_packet_t create_echo_request(ping_config_t *config) {
@@ -47,10 +47,10 @@ icmp_packet_t create_echo_request(ping_config_t *config) {
 
     packet.type = ICMP_ECHO_REQUEST;
     packet.code = 0;
-    packet.process_id = config->process_id;
-    packet.sequence_id = sequence_count++;
+    packet.process_id = htons(config->process_id);
+    packet.sequence_id = htons(sequence_count++);
     packet.checksum = 0;
-    packet.checksum = get_checksum(&packet, sizeof(packet));
+    packet.checksum = htons(get_checksum(&packet, sizeof(packet)));
     libassert(verify_checksum(&packet, sizeof(packet)),
 		"create_echo_request: invalid get/verify checksum parallel");
     return packet;
@@ -58,82 +58,121 @@ icmp_packet_t create_echo_request(ping_config_t *config) {
 
 bool send_echo_request(ping_config_t *config, bool unsent_packet) {
     static icmp_packet_t packet;
+    struct sockaddr_in dest_addr = {
+        .sin_family = AF_INET,
+        .sin_addr = config->destination_addr,
+        .sin_port = 0,
+        .sin_zero = {}};
 
     if (BRANCH_UNLIKELY(!unsent_packet)) {
         packet = create_echo_request(config);
     }
+    memcpy(config->send_buffer, &packet, sizeof(packet));
     ssize_t sent_bytes = sendto(
         config->socket_fd,
-        &packet,
-        sizeof(packet),
+        config->send_buffer,
+        config->payload_size + sizeof(icmp_packet_t),
         0,
-        (struct sockaddr *)&config->destination_addr,
-        sizeof(config->destination_addr));
+        (struct sockaddr *)&dest_addr,
+        sizeof(dest_addr));
     if (BRANCH_UNLIKELY(sent_bytes == -1 &&
         (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))) {
         return true;
     }
     error_if(sent_bytes == -1, SENDTO_ERR, strerror(errno));
     uint64_t now = get_time_us();
+    uint16_t packet_sequence_id = ntohs(packet.sequence_id);
     write_element_at_index(
         &config->stored_transactions,
-        packet.sequence_id,
+        packet_sequence_id,
         &(ping_transaction_t){
-            .sequence_id = packet.sequence_id,
+            .sequence_id = packet_sequence_id,
             .send_time = now});
     config->next_send_time = now + config->interval;
     return false;
 }
 
-void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
-    struct ip *ip = (struct ip *)buffer;
-    size_t ip_header_length;
-    size_t ip_total_length;
+static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
+                            const uint8_t *buffer,
+                           size_t buffer_length) {
+    uint16_t     fragment_info;
 
-    if (bytes < sizeof(ip)) {
-        print_message(PACKET_TOO_SHORT, (int)bytes, config->destination);
-        return;
+    if (buffer_length < sizeof(struct iphdr)){
+        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        return NULL;
     }
-    if (ip->ip_v != 4) {
-        print_message(VERSION_INVALID);
-        return;
-    }
-    ip_header_length = ip->ip_hl * 4;
-    ip_total_length = ntohs(ip->ip_len);
     
-    if (ip_header_length < sizeof(*ip) ||
-        ip_header_length > ip_total_length ||
-        ip_total_length > bytes ||
-        ip_total_length < ip_header_length + sizeof(icmp_packet_t)) {
-        print_message(PACKET_TOO_SHORT, (int)bytes, config->destination);
-        return;
-    }
-    icmp_packet_t *icmp = (icmp_packet_t *)(buffer + ip_header_length);
+    struct iphdr *ip = (struct iphdr *)buffer;
 
-    if (icmp->type != ICMP_ECHO_REPLY) {
+    if (ip->version != 4) {
+        print_message(VERSION_INVALID);
+        return NULL;
+    }
+
+    size_t ip_header_length = ip->ihl * 4;
+
+    if (ip_header_length < sizeof(struct iphdr)) {
+        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        return NULL;
+    }
+    if (buffer_length < ip_header_length || ip_header_length > 60) {
+        print_message(MALFORMED_PACKET, config->destination_str);
+        return NULL;
+    }
+
+    uint16_t total_length = ntohs(ip->tot_len);
+
+    if (total_length < ip_header_length + sizeof(icmp_packet_t) ||
+        total_length > buffer_length) {
+        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        return NULL;
+    }
+
+    if (ip->protocol != IPPROTO_ICMP) {
+        return NULL;
+    }
+
+    fragment_info = ntohs(ip->frag_off);
+
+    if ((fragment_info & IP_OFFMASK) != 0 ||
+        (fragment_info & IP_MF) != 0) {
+        print_message(MALFORMED_PACKET, config->destination_str);
+        return NULL;
+    }
+
+    return (icmp_packet_t *)(buffer + ip_header_length);
+}
+
+void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
+    icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
+    struct iphdr* ip = (struct iphdr *)buffer;
+    
+    if(icmp == NULL) {
         return;
     }
+
+    if (ntohs(icmp->type) != ICMP_ECHO_REPLY) {
+        return;
+    }
+    uint16_t packet_sequence_id = ntohs(icmp->sequence_id);
+    uint16_t packet_process_id = ntohs(icmp->process_id);
+
     ping_transaction_t const* transaction = read_element_at_index(
         &config->stored_transactions,
-        icmp->sequence_id);
-    if (transaction == NULL || transaction->sequence_id != icmp->sequence_id) {
+        packet_sequence_id);
+    if (transaction == NULL ||
+        transaction->sequence_id != packet_sequence_id ||
+        config->process_id != packet_process_id ||
+        !verify_checksum(icmp, bytes)) {
         return;
     }
-    if (config->destination_addr_str) {
-        print_message("%d bytes from %s (%s): icmp_seq=%d time=%.3f ms\n",
-            (int)(ip_total_length - ip_header_length),
-            config->destination,
-            config->destination_addr_str,
-            icmp->sequence_id,
-            (double)(get_time_us() - transaction->send_time) / 1000.0);
-    } else {
-        print_message("%d bytes from %s: icmp_seq=%d time=%.3f ms\n",
-            (int)(ip_total_length - ip_header_length),
-            config->destination,
-            icmp->sequence_id,
-            (double)(get_time_us() - transaction->send_time) / 1000.0);
-    }
-    pop_element_at_index(&config->stored_transactions, icmp->sequence_id);
+    print_message("%ld bytes from %s: icmp_seq=%d ttl=%u time=%.3f ms\n",
+        bytes - ((void*)icmp - (void*)buffer),
+        config->destination_str,
+        packet_sequence_id,
+        ip->ttl,
+        (double)(get_time_us() - transaction->send_time) / 1000.0);
+    pop_element_at_index(&config->stored_transactions, packet_sequence_id);
 }
 
 void read_and_process_packets(ping_config_t *config)
@@ -157,30 +196,41 @@ void read_and_process_packets(ping_config_t *config)
 }
 
 void get_destination_addr(ping_config_t *config) {
-	if (!inet_aton(config->destination, &config->destination_addr)) {
+	if (!inet_aton(config->hostname_str, &config->destination_addr)) {
         struct addrinfo hints;
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_INET;
         hints.ai_socktype = 0;
         hints.ai_protocol = IPPROTO_ICMP;
 		struct addrinfo *result = NULL;
-		int ret = getaddrinfo(config->destination, NULL, &hints, &result);
-		error_if(ret != 0, UNKNOWN_NAME_ERR, config->destination);
+		int ret = getaddrinfo(config->hostname_str, NULL, &hints, &result);
+		error_if(ret != 0, UNKNOWN_NAME_ERR, config->hostname_str);
 		config->destination_addr = ((struct sockaddr_in *)result->ai_addr)->sin_addr;
-        config->destination_addr_str = malloc(INET_ADDRSTRLEN);
-        error_if(!inet_ntop(AF_INET, &config->destination_addr, config->destination_addr_str, INET_ADDRSTRLEN),
+        config->destination_str = malloc(INET_ADDRSTRLEN);
+        error_if(!inet_ntop(AF_INET, &config->destination_addr, config->destination_str, INET_ADDRSTRLEN),
             INET_NTOP_ERR, strerror(errno));
 		freeaddrinfo(result);
-	}
+	} else {
+        config->destination_str = strdup(config->hostname_str);
+    }
 }
 
 void init_config(ping_config_t *config) {
-	config->socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+	config->socket_fd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	error_if(config->socket_fd == -1, SOCKET_ERR, strerror(errno));
-    config->destination_addr_str = NULL;
 	if (config->destination_addr.s_addr == 0) {
 		get_destination_addr(config);
 	}
+    if (config->ttl != (uint32_t)-1) {
+        error_if(setsockopt(config->socket_fd,
+                    IPPROTO_IP,
+                    IP_TTL,
+                    &config->ttl,
+                    sizeof(config->ttl)) < 0,
+                SETSOCKOPT_ERR,
+                "IP_TTL",
+                strerror(errno));
+    }
     int flags = fcntl(config->socket_fd, F_GETFL);
     fcntl(config->socket_fd, F_SETFL, flags | O_NONBLOCK);
 }

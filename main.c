@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <string.h>
+#include <limits.h>
 
 static volatile sig_atomic_t g_stop = 0;
 
@@ -31,18 +32,35 @@ void run_logic(ping_config_t* config) {
     int poll_ready;
     bool unsent_packet = false;
 
-    struct pollfd fds = {
+    struct pollfd fds_reading = {
+        .fd = config->socket_fd,
+        .events = POLLIN
+    };
+
+    struct pollfd fds_unsent_packet = {
         .fd = config->socket_fd,
         .events = POLLIN | POLLOUT
     };
     while (!g_stop) {
-        int timeout = config->next_send_time - get_time_us();
+        int timeout;
+        int64_t buf = (int64_t)config->next_send_time - (int64_t)get_time_us();
+        if (buf < 0) {
+            timeout = 0;
+        } else {
+            buf = buf / 1000;
+            if (buf > INT_MAX) {
+                timeout = INT_MAX;
+            } else {
+                timeout = (int)buf;
+            }
+        }
+        struct pollfd fds = unsent_packet ? fds_unsent_packet : fds_reading;
         poll_ready = poll(&fds, 1, timeout);
 
         if (poll_ready > 0 && fds.revents & POLLIN) {
             read_and_process_packets(config);
         }
-        if (poll_ready > 0 && fds.revents & POLLOUT && unsent_packet) {
+        if (poll_ready > 0 && fds.revents & POLLOUT) {
             unsent_packet = send_echo_request(config, unsent_packet);
         }
         else if (poll_ready == 0) {
@@ -63,27 +81,28 @@ int main(int argc, char** argv) {
 		.process_id = getpid() & 0xFFFF,
         .stored_transactions = create_circular_buffer(sizeof(ping_transaction_t), 10),
 		.destination_addr = {0},
+        .interval = 1000000,
+        .next_send_time = get_time_us(),
 		.socket_fd = -1 ,
-		.destination = NULL};
+		.destination_str = NULL,
+        .ttl = -1,
+        .payload_size = PAYLOAD_DEFAULT_SIZE};
 
     struct sigaction sa = {0};
     sa.sa_handler = handle_sigint;
     error_if(sigaction(SIGINT, &sa, NULL) == -1, SIGACTION_ERR, strerror(errno));
 
     apply_input_flags(&config, argc, argv);
+    config.send_buffer = malloc(config.payload_size + sizeof(icmp_packet_t));
+    memset(config.send_buffer, '\0', config.payload_size + sizeof(icmp_packet_t));
 	init_config(&config);
-    if (config.destination_addr_str) {
-        print_message("PING %s (%s) %lu bytes of data.\n",
-            config.destination,
-            config.destination_addr_str,
-            sizeof(icmp_packet_t));
-    } else {
-        print_message("PING %s %lu bytes of data.\n",
-            config.destination,
-            sizeof(icmp_packet_t));
-    }
+    print_message("PING %s (%s) %u bytes of data.\n",
+        config.hostname_str,
+        config.destination_str,
+        config.payload_size);
     run_logic(&config);
     free_circular_buffer(&config.stored_transactions);
-    free(config.destination_addr_str);
+    free(config.destination_str);
+    free(config.send_buffer);
     return 0;
 }

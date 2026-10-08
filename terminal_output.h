@@ -24,7 +24,8 @@ Options:\n\
 \n"
 #define INVALID_OPTION		PROGRAM_NAME "invalid option -- '%c'\n" HELP_MESSAGE
 #define OPTION_REQ_ARG		PROGRAM_NAME "option requires an argument -- '%c'\n" HELP_MESSAGE
-#define PACKET_TOO_SHORT    PROGRAM_NAME "packet too short (%d bytes) from %s\n"
+#define PACKET_TOO_SHORT    PROGRAM_NAME "packet too short (%ld bytes) from %s\n"
+#define MALFORMED_PACKET    PROGRAM_NAME "malformed packet from %s\n"
 #define VERSION_INVALID     PROGRAM_NAME "invalid version in IP header, expected 4\n"
 #define CHECKSUM_SIZE_ERR	PROGRAM_PREFIX_MESSAGE "Unexpected Checksum size, data is not 2byte aligned\n"
 #define ALLOC_ERR 			PROGRAM_PREFIX_MESSAGE "Memory allocation failed\n"
@@ -36,6 +37,7 @@ Options:\n\
 #define CLOCK_ERR		    PROGRAM_PREFIX_MESSAGE "clock error: %s\n"
 #define POLL_ERROR		    PROGRAM_PREFIX_MESSAGE "poll error: %s\n"
 #define INET_NTOP_ERR		PROGRAM_PREFIX_MESSAGE "inet_ntop error: %s\n"
+#define SETSOCKOPT_ERR		PROGRAM_PREFIX_MESSAGE "setsockopt(%s) error: %s\n"
 
 #define print_message(format, ...)                  \
     fprintf(stdout, format, ##__VA_ARGS__);

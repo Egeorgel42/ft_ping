@@ -10,6 +10,7 @@
 #endif
 
 #define MAX_READ_SIZE 65535
+#define PAYLOAD_DEFAULT_SIZE 56
 
 # include <stdint.h>
 # include <netinet/in.h>
@@ -36,14 +37,17 @@ typedef enum {
 
 typedef struct {
     uint8_t 	        mode;
-	char const* 	    destination;
+    char*               send_buffer;
+	char const* 	    hostname_str;
+	char* 	            destination_str;
+	struct in_addr	    destination_addr;
     uint16_t    	    process_id;
     uint64_t            next_send_time;
     uint64_t            interval;
     circular_buffer_t 	stored_transactions;
 	int 		        socket_fd;
-	struct in_addr	    destination_addr;
-    char*               destination_addr_str;
+    uint32_t            payload_size;
+    uint32_t            ttl;
 } ping_config_t;
 
 typedef struct {
