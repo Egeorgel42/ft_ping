@@ -83,3 +83,13 @@ void pop_element_at_index(circular_buffer_t* buffer, uint32_t index) {
 void free_circular_buffer(circular_buffer_t* buffer) {
     free(buffer->buffer);
 }
+
+uint32_t size(circular_buffer_t* buffer){
+    uint used_slot = 0;
+    for (uint32_t i = 0; i < buffer->buffer_size; i++) {
+        if (*(bool*)(buffer->buffer + (buffer->element_size * i))) {
+            used_slot++;
+        }
+    }
+    return used_slot;
+}

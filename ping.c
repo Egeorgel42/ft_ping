@@ -43,12 +43,11 @@ bool verify_checksum(const void *obj, size_t byte_size) {
 
 icmp_packet_t create_echo_request(ping_config_t *config) {
     icmp_packet_t packet = {0};
-    static uint16_t sequence_count = 0;
 
     packet.type = ICMP_ECHO_REQUEST;
     packet.code = 0;
     packet.process_id = htons(config->process_id);
-    packet.sequence_id = htons(sequence_count++);
+    packet.sequence_id = htons(config->sequence_count++);
     packet.checksum = 0;
     packet.checksum = htons(get_checksum(&packet, sizeof(packet)));
     libassert(verify_checksum(&packet, sizeof(packet)),
@@ -166,12 +165,21 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
         !verify_checksum(icmp, bytes)) {
         return;
     }
+    double time_diff = (double)(get_time_us() - transaction->send_time) / 1000.0;
     print_message("%ld bytes from %s: icmp_seq=%d ttl=%u time=%.3f ms\n",
         bytes - ((void*)icmp - (void*)buffer),
         config->destination_str,
         packet_sequence_id,
         ip->ttl,
-        (double)(get_time_us() - transaction->send_time) / 1000.0);
+        time_diff);
+    if (config->min_time > time_diff) {
+        config->min_time = time_diff;
+    }
+    if (config->max_time < time_diff) {
+        config->max_time = time_diff;
+    }
+    config->sum_time += time_diff;
+    config->sum_time_sq += time_diff * time_diff;
     pop_element_at_index(&config->stored_transactions, packet_sequence_id);
 }
 

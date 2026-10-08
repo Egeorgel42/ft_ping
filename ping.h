@@ -42,12 +42,17 @@ typedef struct {
 	char* 	            destination_str;
 	struct in_addr	    destination_addr;
     uint16_t    	    process_id;
+    uint32_t            sequence_count;
     uint64_t            next_send_time;
     uint64_t            interval;
     circular_buffer_t 	stored_transactions;
 	int 		        socket_fd;
     uint32_t            payload_size;
     uint32_t            ttl;
+    double              min_time;
+    double              max_time;
+    double              sum_time;
+    double              sum_time_sq;
 } ping_config_t;
 
 typedef struct {

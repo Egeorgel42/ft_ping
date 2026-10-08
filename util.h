@@ -16,7 +16,7 @@ void const* read_element_at_index(circular_buffer_t* buffer, uint32_t index);
 void const* read_element_at_index_and_pop(circular_buffer_t* buffer, uint32_t index);
 void pop_element_at_index(circular_buffer_t* buffer, uint32_t index);
 void free_circular_buffer(circular_buffer_t* buffer);
-void foreach_slot(circular_buffer_t* buffer, void (*callback)());
+uint32_t size(circular_buffer_t* buffer);
 
 uint64_t get_time_us();
 

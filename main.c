@@ -7,6 +7,7 @@
 #include <poll.h>
 #include <string.h>
 #include <limits.h>
+#include <float.h>
 
 static volatile sig_atomic_t g_stop = 0;
 
@@ -26,6 +27,32 @@ void find_expired_requests(ping_config_t const* config, circular_buffer_t* buffe
             pop_element_at_index(buffer, i);
         }
     }
+}
+
+static double nabs(double value)
+{
+    return value < 0.0 ? -value : value;
+}
+
+static double nsqrt(double value, double precision)
+{
+    double x0;
+    double x1;
+
+    if (value < 0.0)
+        return 0.0;
+
+    if (value < precision)
+        return 0.0;
+
+    x1 = value / 2.0;
+
+    do {
+        x0 = x1;
+        x1 = (x0 + value / x0) / 2.0;
+    } while (nabs(x1 - x0) > precision);
+
+    return x1;
 }
 
 void run_logic(ping_config_t* config) {
@@ -72,13 +99,31 @@ void run_logic(ping_config_t* config) {
         }
         error_if(poll_ready == -1, POLL_ERROR, strerror(errno));
     }
-    //print_stats();
+    if (config->sequence_count == 0) {
+        return;
+    }
+    print_message("--- %s ping statistics ---\n", config->hostname_str);
+    uint32_t packets_recieved = config->sequence_count - size(&config->stored_transactions);
+    uint32_t packet_lost = config->sequence_count - packets_recieved;
+    uint32_t lost_percent = (packet_lost * 100u) / config->sequence_count;
+    print_message("%d packets transmitted, %d packets received, %d%% packet loss\n",
+        config->sequence_count,
+        packets_recieved,
+        lost_percent);
+    double avg_time = config->sum_time / config->sequence_count;
+    double stddev = nsqrt((config->sum_time_sq / config->sequence_count) - (avg_time * avg_time), 0.0005);
+    print_message("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n",
+        config->min_time,
+        avg_time,
+        config->max_time,
+        stddev);
 }
 
 int main(int argc, char** argv) {
     ping_config_t config = {
 		.mode = 0,
 		.process_id = getpid() & 0xFFFF,
+        .sequence_count = 0,
         .stored_transactions = create_circular_buffer(sizeof(ping_transaction_t), 10),
 		.destination_addr = {0},
         .interval = 1000000,
@@ -86,7 +131,11 @@ int main(int argc, char** argv) {
 		.socket_fd = -1 ,
 		.destination_str = NULL,
         .ttl = -1,
-        .payload_size = PAYLOAD_DEFAULT_SIZE};
+        .payload_size = PAYLOAD_DEFAULT_SIZE,
+        .min_time = DBL_MAX,
+        .max_time = 0,
+        .sum_time = 0,
+        .sum_time_sq = 0};
 
     struct sigaction sa = {0};
     sa.sa_handler = handle_sigint;
@@ -96,10 +145,14 @@ int main(int argc, char** argv) {
     config.send_buffer = malloc(config.payload_size + sizeof(icmp_packet_t));
     memset(config.send_buffer, '\0', config.payload_size + sizeof(icmp_packet_t));
 	init_config(&config);
-    print_message("PING %s (%s) %u bytes of data.\n",
+    print_message("PING %s (%s): %u data bytes",
         config.hostname_str,
         config.destination_str,
         config.payload_size);
+    if (config.mode & PING_VERBOSE) {
+        print_message(", id 0x%04x = %u", config.process_id, config.process_id);
+    }
+    print_message("\n");
     run_logic(&config);
     free_circular_buffer(&config.stored_transactions);
     free(config.destination_str);
