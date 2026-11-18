@@ -119,8 +119,7 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
 
     uint16_t total_length = ntohs(ip->tot_len);
 
-    if (total_length < ip_header_length + sizeof(icmp_packet_t) ||
-        total_length > buffer_length) {
+    if (total_length < ip_header_length + sizeof(icmp_packet_t)) {
         print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
         return NULL;
     }
@@ -148,9 +147,12 @@ static char* addr_to_str(void* addr) {
 }
 
 static void err_transaction(ping_config_t *config, icmp_packet_t *icmp, size_t bytes) {
-    struct iphdr* ip = (struct iphdr *)(icmp + sizeof(icmp_packet_t));
+    struct iphdr* ip = (struct iphdr *)((uint8_t *)icmp);
     icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
-    if (origin->process_id == config->process_id) {
+    if (origin == NULL) {
+        return;
+    }
+    if (ntohs(origin->process_id) == config->process_id) {
         pop_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
     }
 }
@@ -162,17 +164,22 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     if(icmp == NULL) {
         return;
     }
+    uint16_t total_length = ntohs(ip->tot_len);
+    if (total_length > bytes) {
+        print_message(MALFORMED_PACKET, config->destination_str);
+        return;
+    }
     char *rsp_src = addr_to_str(&ip->saddr);
     switch (icmp->type) {
         case ICMP_UNREACHABLE:
             err_transaction(config,
-                icmp,
-                bytes - ((void*)icmp - (void*)ip));
+                icmp + sizeof(icmp_packet_t),
+                bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
                 return;
         case ICMP_TIME_EXCEEDED:
             err_transaction(config,
                 icmp,
-                bytes - ((void*)icmp - (void*)ip));
+                bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
                 return;
         case ICMP_ECHO_REPLY: break;
         default: return;
