@@ -146,8 +146,8 @@ static char* addr_to_str(void* addr) {
     return dest;
 }
 
-static void err_transaction(ping_config_t *config, icmp_packet_t *icmp, size_t bytes) {
-    struct iphdr* ip = (struct iphdr *)((uint8_t *)icmp);
+static void err_transaction(ping_config_t *config, uint8_t *icmp_payload, size_t bytes) {
+    struct iphdr* ip = (struct iphdr *)(icmp_payload);
     icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
     if (origin == NULL) {
         return;
@@ -172,13 +172,15 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     char *rsp_src = addr_to_str(&ip->saddr);
     switch (icmp->type) {
         case ICMP_UNREACHABLE:
+            print_message(UNREACHABLE_ERR, rsp_src);
             err_transaction(config,
-                icmp + sizeof(icmp_packet_t),
+                (uint8_t *)icmp + sizeof(icmp_packet_t),
                 bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
                 return;
         case ICMP_TIME_EXCEEDED:
+            print_message(TIME_EXCEEDED_ERR, rsp_src);
             err_transaction(config,
-                icmp,
+                (uint8_t *)icmp + sizeof(icmp_packet_t),
                 bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
                 return;
         case ICMP_ECHO_REPLY: break;
