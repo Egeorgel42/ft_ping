@@ -112,7 +112,7 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
         print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
         return NULL;
     }
-    if (buffer_length < ip_header_length || ip_header_length > 60) {
+    if (buffer_length < ip_header_length + sizeof(icmp_packet_t) || ip_header_length > 60) {
         print_message(MALFORMED_PACKET, config->destination_str);
         return NULL;
     }
