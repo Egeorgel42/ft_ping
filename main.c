@@ -103,13 +103,15 @@ void run_logic(ping_config_t* config) {
         return;
     }
     print_message("--- %s ping statistics ---\n", config->hostname_str);
-    uint32_t packets_recieved = config->sequence_count - size(&config->stored_transactions);
-    uint32_t packet_lost = config->sequence_count - packets_recieved;
+    uint32_t packet_lost = config->sequence_count - config->response_count;
     uint32_t lost_percent = (packet_lost * 100u) / config->sequence_count;
     print_message("%d packets transmitted, %d packets received, %d%% packet loss\n",
         config->sequence_count,
-        packets_recieved,
+        config->response_count,
         lost_percent);
+    if (config->response_count == 0) {
+        return;
+    }
     double avg_time = config->sum_time / config->sequence_count;
     double stddev = nsqrt((config->sum_time_sq / config->sequence_count) - (avg_time * avg_time), 0.0005);
     print_message("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n",
