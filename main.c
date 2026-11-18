@@ -130,12 +130,13 @@ int main(int argc, char** argv) {
         .next_send_time = get_time_us(),
 		.socket_fd = -1 ,
 		.destination_str = NULL,
-        .ttl = -1,
+        .ttl = 0,
         .payload_size = PAYLOAD_DEFAULT_SIZE,
         .min_time = DBL_MAX,
         .max_time = 0,
         .sum_time = 0,
-        .sum_time_sq = 0};
+        .sum_time_sq = 0,
+        .response_count = 0};
 
     struct sigaction sa = {0};
     sa.sa_handler = handle_sigint;

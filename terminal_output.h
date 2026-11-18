@@ -14,6 +14,7 @@
 #define USAGE_ERR			PROGRAM_NAME "usage error: %s\n"
 #define USAGE_ERR_DEST_REQ  USAGE_ERR, "Destination address required"
 #define UNKNOWN_NAME_ERR	PROGRAM_NAME "%s: Name or service not known\n"
+#define MISSING_HOST_OP 	PROGRAM_NAME "missing host operand\nTry 'ping --help' for more information.\n"
 #define HELP_MESSAGE \
 "\n\
 Usage:\n\
@@ -23,10 +24,13 @@ Options:\n\
     -v        Verbose output\n\
 \n"
 #define INVALID_OPTION		PROGRAM_NAME "invalid option -- '%c'\n" HELP_MESSAGE
-#define OPTION_REQ_ARG		PROGRAM_NAME "option requires an argument -- '%c'\n" HELP_MESSAGE
+#define INVALID_STR_OPTION	PROGRAM_NAME "invalid option -- '%s'\n" HELP_MESSAGE
+#define OPTION_REQ_ARG		PROGRAM_NAME "option requires an argument -- '%s'\n" HELP_MESSAGE
 #define PACKET_TOO_SHORT    PROGRAM_NAME "packet too short (%ld bytes) from %s\n"
 #define MALFORMED_PACKET    PROGRAM_NAME "malformed packet from %s\n"
 #define VERSION_INVALID     PROGRAM_NAME "invalid version in IP header, expected 4\n"
+#define UNREACHABLE_ERR     "Destination: %s is unreachable\n"
+#define TIME_EXCEEDED_ERR   "Time exceeded from: %s\n"
 #define CHECKSUM_SIZE_ERR	PROGRAM_PREFIX_MESSAGE "Unexpected Checksum size, data is not 2byte aligned\n"
 #define ALLOC_ERR 			PROGRAM_PREFIX_MESSAGE "Memory allocation failed\n"
 #define ASSERT_ERR			PROGRAM_PREFIX_MESSAGE "Assert error: %s\n"

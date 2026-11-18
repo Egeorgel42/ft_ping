@@ -28,7 +28,9 @@ typedef struct {
 
 typedef enum {
     ICMP_ECHO_REPLY = 0,
+    ICMP_UNREACHABLE = 3,
     ICMP_ECHO_REQUEST = 8,
+    ICMP_TIME_EXCEEDED = 11,
 } icmp_type_e;
 
 typedef enum {
@@ -48,7 +50,8 @@ typedef struct {
     circular_buffer_t 	stored_transactions;
 	int 		        socket_fd;
     uint32_t            payload_size;
-    uint32_t            ttl;
+    int                 ttl;
+    uint32_t            response_count;
     double              min_time;
     double              max_time;
     double              sum_time;

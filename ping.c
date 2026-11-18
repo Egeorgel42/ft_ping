@@ -94,8 +94,6 @@ bool send_echo_request(ping_config_t *config, bool unsent_packet) {
 static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
                             const uint8_t *buffer,
                            size_t buffer_length) {
-    uint16_t     fragment_info;
-
     if (buffer_length < sizeof(struct iphdr)){
         print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
         return NULL;
@@ -131,7 +129,7 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
         return NULL;
     }
 
-    fragment_info = ntohs(ip->frag_off);
+    uint16_t fragment_info = ntohs(ip->frag_off);
 
     if ((fragment_info & IP_OFFMASK) != 0 ||
         (fragment_info & IP_MF) != 0) {
@@ -142,6 +140,21 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
     return (icmp_packet_t *)(buffer + ip_header_length);
 }
 
+static char* addr_to_str(void* addr) {
+    static char dest[INET_ADDRSTRLEN];
+    error_if(!inet_ntop(AF_INET, addr, dest, INET_ADDRSTRLEN),
+        INET_NTOP_ERR, strerror(errno));
+    return dest;
+}
+
+static void err_transaction(ping_config_t *config, icmp_packet_t *icmp, size_t bytes) {
+    struct iphdr* ip = (struct iphdr *)(icmp + sizeof(icmp_packet_t));
+    icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
+    if (origin->process_id == config->process_id) {
+        pop_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
+    }
+}
+
 void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
     struct iphdr* ip = (struct iphdr *)buffer;
@@ -149,10 +162,22 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     if(icmp == NULL) {
         return;
     }
-
-    if (ntohs(icmp->type) != ICMP_ECHO_REPLY) {
-        return;
+    char *rsp_src = addr_to_str(&ip->saddr);
+    switch (icmp->type) {
+        case ICMP_UNREACHABLE:
+            err_transaction(config,
+                icmp,
+                bytes - ((void*)icmp - (void*)ip));
+                return;
+        case ICMP_TIME_EXCEEDED:
+            err_transaction(config,
+                icmp,
+                bytes - ((void*)icmp - (void*)ip));
+                return;
+        case ICMP_ECHO_REPLY: break;
+        default: return;
     }
+
     uint16_t packet_sequence_id = ntohs(icmp->sequence_id);
     uint16_t packet_process_id = ntohs(icmp->process_id);
 
@@ -162,13 +187,13 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     if (transaction == NULL ||
         transaction->sequence_id != packet_sequence_id ||
         config->process_id != packet_process_id ||
-        !verify_checksum(icmp, bytes)) {
+        !verify_checksum(icmp, bytes - ((void*)icmp - (void*)buffer))) {
         return;
     }
     double time_diff = (double)(get_time_us() - transaction->send_time) / 1000.0;
     print_message("%ld bytes from %s: icmp_seq=%d ttl=%u time=%.3f ms\n",
         bytes - ((void*)icmp - (void*)buffer),
-        config->destination_str,
+        rsp_src,
         packet_sequence_id,
         ip->ttl,
         time_diff);
@@ -181,6 +206,7 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     config->sum_time += time_diff;
     config->sum_time_sq += time_diff * time_diff;
     pop_element_at_index(&config->stored_transactions, packet_sequence_id);
+    config->response_count++;
 }
 
 void read_and_process_packets(ping_config_t *config)
@@ -215,6 +241,7 @@ void get_destination_addr(ping_config_t *config) {
 		error_if(ret != 0, UNKNOWN_NAME_ERR, config->hostname_str);
 		config->destination_addr = ((struct sockaddr_in *)result->ai_addr)->sin_addr;
         config->destination_str = malloc(INET_ADDRSTRLEN);
+        error_if(!config->destination_str, ALLOC_ERR);
         error_if(!inet_ntop(AF_INET, &config->destination_addr, config->destination_str, INET_ADDRSTRLEN),
             INET_NTOP_ERR, strerror(errno));
 		freeaddrinfo(result);
@@ -229,7 +256,7 @@ void init_config(ping_config_t *config) {
 	if (config->destination_addr.s_addr == 0) {
 		get_destination_addr(config);
 	}
-    if (config->ttl != (uint32_t)-1) {
+    if (config->ttl != 0) {
         error_if(setsockopt(config->socket_fd,
                     IPPROTO_IP,
                     IP_TTL,
