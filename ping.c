@@ -146,17 +146,6 @@ static char* addr_to_str(void* addr) {
     return dest;
 }
 
-static void err_transaction(ping_config_t *config, uint8_t *icmp_payload, size_t bytes) {
-    struct iphdr* ip = (struct iphdr *)(icmp_payload);
-    icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
-    if (origin == NULL) {
-        return;
-    }
-    if (ntohs(origin->process_id) == config->process_id) {
-        pop_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
-    }
-}
-
 static void print_unreachable_error(uint8_t code) {
     switch (code) {
         case NETWORK_UNREACHABLE:
@@ -207,6 +196,46 @@ static void print_unreachable_error(uint8_t code) {
     }
 }
 
+static void print_transaction_error(ping_config_t *config, icmp_packet_t *icmp_packet) {
+    switch (icmp_packet->type) {
+        case ICMP_UNREACHABLE:
+            print_unreachable_error(icmp_packet->code);
+            return;
+        case ICMP_TIME_EXCEEDED:
+            print_message(TIME_EXCEEDED_ERR);
+            return;
+        default:
+            print_message(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
+            return;
+    }
+}
+
+static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_payload, icmp_packet_t *icmp_payload) {
+    if (!(config->mode & PING_VERBOSE)) {
+        return;
+    }
+    print_message("IP Hdr Dump:\n");
+    for (size_t i = 0; i < sizeof(struct iphdr); i++)
+        printf("%02x%s", ((uint8_t*)iphdr_payload)[i], (i % 2) ? " " : "");
+    printf("\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
+}
+
+static void err_transaction(ping_config_t *config, icmp_packet_t *icmp_packet, uint8_t *icmp_payload, size_t bytes) {
+    struct iphdr* ip = (struct iphdr *)(icmp_payload);
+    icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
+    if (origin == NULL) {
+        return;
+    }
+    if (ntohs(origin->process_id) == config->process_id) {
+        void const* transaction = read_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
+        if (transaction != NULL) {
+            print_transaction_error(config, icmp_packet);
+            print_verbose_error_dump(config, ip, origin, bytes);
+            pop_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
+        }
+    }
+}
+
 void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
     struct iphdr* ip = (struct iphdr *)buffer;
@@ -223,21 +252,13 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     print_message("%ld bytes from %s: ",
         bytes - ((void*)icmp - (void*)buffer),
         rsp_src);
-    switch (icmp->type) {
-        case ICMP_UNREACHABLE:
-            print_unreachable_error(icmp->code);
+
+    if (icmp->type != ICMP_ECHO_REPLY) {
             err_transaction(config,
+            icmp,
                 (uint8_t *)icmp + sizeof(icmp_packet_t),
-                bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
+            bytes - ((void*)icmp - (void*)ip));
                 return;
-        case ICMP_TIME_EXCEEDED:
-            print_message("Time to live exceeded\n");
-            err_transaction(config,
-                (uint8_t *)icmp + sizeof(icmp_packet_t),
-                bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
-                return;
-        case ICMP_ECHO_REPLY: break;
-        default: return;
     }
 
     uint16_t packet_sequence_id = ntohs(icmp->sequence_id);

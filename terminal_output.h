@@ -29,8 +29,6 @@ Options:\n\
 #define PACKET_TOO_SHORT    PROGRAM_NAME "packet too short (%ld bytes) from %s\n"
 #define MALFORMED_PACKET    PROGRAM_NAME "malformed packet from %s\n"
 #define VERSION_INVALID     PROGRAM_NAME "invalid version in IP header, expected 4\n"
-#define UNREACHABLE_ERR     "Destination: %s is unreachable\n"
-#define TIME_EXCEEDED_ERR   "Time exceeded from: %s\n"
 #define CHECKSUM_SIZE_ERR	PROGRAM_PREFIX_MESSAGE "Unexpected Checksum size, data is not 2byte aligned\n"
 #define ALLOC_ERR 			PROGRAM_PREFIX_MESSAGE "Memory allocation failed\n"
 #define ASSERT_ERR			PROGRAM_PREFIX_MESSAGE "Assert error: %s\n"
@@ -42,6 +40,9 @@ Options:\n\
 #define POLL_ERROR		    PROGRAM_PREFIX_MESSAGE "poll error: %s\n"
 #define INET_NTOP_ERR		PROGRAM_PREFIX_MESSAGE "inet_ntop error: %s\n"
 #define SETSOCKOPT_ERR		PROGRAM_PREFIX_MESSAGE "setsockopt(%s) error: %s\n"
+
+#define UNKNOWN_ICMP_TYPE_ERR	"Unknown ICMP type: %d\n"
+#define TIME_EXCEEDED_ERR       "Time to live exceeded\n"
 
 #define NETWORK_UNREACHABLE_ERR	        "Destination Net Unreachable\n"
 #define HOST_UNREACHABLE_ERR		    "Destination Host Unreachable\n"
