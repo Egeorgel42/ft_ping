@@ -112,8 +112,11 @@ void run_logic(ping_config_t* config) {
     if (config->response_count == 0) {
         return;
     }
-    double avg_time = config->sum_time / config->sequence_count;
-    double stddev = nsqrt((config->sum_time_sq / config->sequence_count) - (avg_time * avg_time), 0.0005);
+    double avg_time = config->sum_time / config->response_count;
+    double stddev = nsqrt(
+        (config->sum_time_sq / config->response_count) -
+        (avg_time * avg_time),
+        0.0005);
     print_message("round-trip min/avg/max/stddev = %.3f/%.3f/%.3f/%.3f ms\n",
         config->min_time,
         avg_time,

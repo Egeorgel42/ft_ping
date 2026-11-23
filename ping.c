@@ -139,7 +139,7 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
     return (icmp_packet_t *)(buffer + ip_header_length);
 }
 
-static char* addr_to_str(void* addr) {
+static char* addr_to_str(void const* addr) {
     static char dest[INET_ADDRSTRLEN];
     error_if(!inet_ntop(AF_INET, addr, dest, INET_ADDRSTRLEN),
         INET_NTOP_ERR, strerror(errno));
@@ -196,13 +196,27 @@ static void print_unreachable_error(uint8_t code) {
     }
 }
 
-static void print_transaction_error(ping_config_t *config, icmp_packet_t *icmp_packet) {
+static void print_time_exceeded_error(uint8_t code) {
+    switch (code) {
+        case 0:
+            print_message(TIME_EXCEEDED_ERR);
+            return;
+        case 1:
+            print_message(FRAG_REASSEMBLY_TIME_EXCEEDED_ERR);
+            return;
+        default:
+            print_message(UNKNOWN_TIME_EXCEEDED_ERR, code);
+            return;
+    }
+}
+
+static void print_transaction_error(icmp_packet_t *icmp_packet) {
     switch (icmp_packet->type) {
         case ICMP_UNREACHABLE:
             print_unreachable_error(icmp_packet->code);
             return;
         case ICMP_TIME_EXCEEDED:
-            print_message(TIME_EXCEEDED_ERR);
+            print_time_exceeded_error(icmp_packet->code);
             return;
         default:
             print_message(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
@@ -213,71 +227,153 @@ static void print_transaction_error(ping_config_t *config, icmp_packet_t *icmp_p
 static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_payload, icmp_packet_t *icmp_payload) {
     if (!(config->mode & PING_VERBOSE)) {
         return;
+    } size_t ip_header_length = iphdr_payload->ihl * 4;
+    uint16_t fragment_info = ntohs(iphdr_payload->frag_off);
+    char source[INET_ADDRSTRLEN];
+    char destination[INET_ADDRSTRLEN];
+
+    if (!inet_ntop(AF_INET, &iphdr_payload->saddr,
+                   source, sizeof(source)) ||
+        !inet_ntop(AF_INET, &iphdr_payload->daddr,
+                   destination, sizeof(destination))) {
+        return;
     }
-    print_message("IP Hdr Dump:\n");
-    for (size_t i = 0; i < sizeof(struct iphdr); i++)
-        printf("%02x%s", ((uint8_t*)iphdr_payload)[i], (i % 2) ? " " : "");
-    printf("\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
+
+    print_message("IP Hdr Dump:\n ");
+    for (size_t i = 0; i < ip_header_length; i++) {
+        print_message("%02x%s",
+            ((uint8_t const *)iphdr_payload)[i],
+            (i % 2) ? " " : "");
+    }
+
+    print_message(
+        "\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
+    print_message(
+        " %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s\t%s\t",
+        iphdr_payload->version,
+        iphdr_payload->ihl,
+        iphdr_payload->tos,
+        ntohs(iphdr_payload->tot_len),
+        ntohs(iphdr_payload->id),
+        fragment_info >> 13,
+        fragment_info & IP_OFFMASK,
+        iphdr_payload->ttl,
+        iphdr_payload->protocol,
+        ntohs(iphdr_payload->check),
+        source,
+        destination);
+
+    for (size_t i = sizeof(struct iphdr); i < ip_header_length; i++) {
+        print_message("%02x%s",
+            ((uint8_t const *)iphdr_payload)[i],
+            ((i + 1) % 2) ? "" : " ");
+    }
+
+    print_message(
+        "\nICMP: type %u, code %u, size %zu, id 0x%04x, seq 0x%04x\n",
+        icmp_payload->type,
+        icmp_payload->code,
+        ntohs(iphdr_payload->tot_len) - ip_header_length,
+        ntohs(icmp_payload->process_id),
+        ntohs(icmp_payload->sequence_id));
 }
 
-static void err_transaction(ping_config_t *config, icmp_packet_t *icmp_packet, uint8_t *icmp_payload, size_t bytes) {
-    struct iphdr* ip = (struct iphdr *)(icmp_payload);
-    icmp_packet_t *origin = parse_ipv4_icmp(config, (uint8_t*)ip, bytes);
+static void err_transaction(ping_config_t *config,
+                            struct iphdr const *outer_ip,
+                            icmp_packet_t *icmp_packet,
+                            size_t icmp_length) {
+    if (icmp_length < sizeof(*icmp_packet)) {
+        return;
+    }
+    uint8_t *quoted_ip_bytes =
+        (uint8_t *)icmp_packet + sizeof(*icmp_packet);
+    size_t quoted_length = icmp_length - sizeof(*icmp_packet);
+
+    icmp_packet_t *origin =
+        parse_ipv4_icmp(config, quoted_ip_bytes, quoted_length);
     if (origin == NULL) {
         return;
     }
-    if (ntohs(origin->process_id) == config->process_id) {
-        void const* transaction = read_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
-        if (transaction != NULL) {
-            print_transaction_error(config, icmp_packet);
-            print_verbose_error_dump(config, ip, origin, bytes);
-            pop_element_at_index(&config->stored_transactions, ntohs(origin->sequence_id));
-        }
-    }
-}
 
-void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
-    icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
-    struct iphdr* ip = (struct iphdr *)buffer;
-    
-    if(icmp == NULL) {
+    struct iphdr *quoted_ip = (struct iphdr *)quoted_ip_bytes;
+    uint16_t sequence_id = ntohs(origin->sequence_id);
+
+    if (origin->type != ICMP_ECHO_REQUEST ||
+        origin->code != 0 ||
+        ntohs(origin->process_id) != config->process_id ||
+        quoted_ip->daddr != config->destination_addr.s_addr) {
         return;
     }
+
+    ping_transaction_t const *transaction = read_element_at_index(
+        &config->stored_transactions,
+        sequence_id);
+    if (transaction == NULL ||
+        transaction->sequence_id != sequence_id) {
+        return;
+    }
+
+    print_message("%zu bytes from %s: ",
+        icmp_length,
+        addr_to_str(&outer_ip->saddr));
+    print_transaction_error(icmp_packet);
+    print_verbose_error_dump(config, quoted_ip, origin);
+    pop_element_at_index(&config->stored_transactions, sequence_id);
+}
+void process_packet(ping_config_t *config,
+                    uint8_t *buffer,
+                    size_t bytes) {
+    icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
+    struct iphdr *ip = (struct iphdr *)buffer;
+
+    if (icmp == NULL) {
+        return;
+    }
+
     uint16_t total_length = ntohs(ip->tot_len);
     if (total_length > bytes) {
         print_message(MALFORMED_PACKET, config->destination_str);
         return;
     }
-    char *rsp_src = addr_to_str(&ip->saddr);
-    print_message("%ld bytes from %s: ",
-        bytes - ((void*)icmp - (void*)buffer),
-        rsp_src);
 
+    size_t ip_header_length = (uint8_t *)icmp - buffer;
+    size_t icmp_length = total_length - ip_header_length;
+
+    if (!verify_checksum(icmp, icmp_length)) {
+        print_message("checksum mismatch from %s\n",
+            addr_to_str(&ip->saddr));
+        return;
+    }
+    if (icmp->type == ICMP_ECHO_REQUEST) {
+        return;
+    }
     if (icmp->type != ICMP_ECHO_REPLY) {
-            err_transaction(config,
-            icmp,
-                (uint8_t *)icmp + sizeof(icmp_packet_t),
-            bytes - ((void*)icmp - (void*)ip));
-                return;
+        err_transaction(config, ip, icmp, icmp_length);
+        return;
     }
 
     uint16_t packet_sequence_id = ntohs(icmp->sequence_id);
     uint16_t packet_process_id = ntohs(icmp->process_id);
 
-    ping_transaction_t const* transaction = read_element_at_index(
+    ping_transaction_t const *transaction = read_element_at_index(
         &config->stored_transactions,
         packet_sequence_id);
     if (transaction == NULL ||
         transaction->sequence_id != packet_sequence_id ||
-        config->process_id != packet_process_id ||
-        !verify_checksum(icmp, bytes - ((void*)icmp - (void*)buffer))) {
+        config->process_id != packet_process_id) {
         return;
     }
-    double time_diff = (double)(get_time_us() - transaction->send_time) / 1000.0;
-    print_message("icmp_seq=%d ttl=%u time=%.3f ms\n",
+
+    double time_diff =
+        (double)(get_time_us() - transaction->send_time) / 1000.0;
+
+    print_message("%zu bytes from %s: icmp_seq=%d ttl=%u time=%.3f ms\n",
+        icmp_length,
+        addr_to_str(&ip->saddr),
         packet_sequence_id,
         ip->ttl,
         time_diff);
+
     if (config->min_time > time_diff) {
         config->min_time = time_diff;
     }
@@ -286,7 +382,8 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     }
     config->sum_time += time_diff;
     config->sum_time_sq += time_diff * time_diff;
-    pop_element_at_index(&config->stored_transactions, packet_sequence_id);
+    pop_element_at_index(&config->stored_transactions,
+        packet_sequence_id);
     config->response_count++;
 }
 

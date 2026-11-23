@@ -43,6 +43,8 @@ Options:\n\
 
 #define UNKNOWN_ICMP_TYPE_ERR	"Unknown ICMP type: %d\n"
 #define TIME_EXCEEDED_ERR       "Time to live exceeded\n"
+#define FRAG_REASSEMBLY_TIME_EXCEEDED_ERR	"Frag reassembly time exceeded\n"
+#define UNKNOWN_TIME_EXCEEDED_ERR	"Time exceeded, unknown code: %d\n"
 
 #define NETWORK_UNREACHABLE_ERR	        "Destination Net Unreachable\n"
 #define HOST_UNREACHABLE_ERR		    "Destination Host Unreachable\n"
