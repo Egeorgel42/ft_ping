@@ -97,6 +97,7 @@ static char** parse_and_apply_argv_flag(char** current_argv, ping_config_t* conf
 		return NULL;
 	}
 	if (current_argv[0][0] != '-') {
+		error_if(config->hostname_str, USAGE_ERR_MULT_DEST);
 		config->hostname_str = current_argv[0];
 		return current_argv;
 	}

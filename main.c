@@ -119,7 +119,8 @@ int main(int argc, char** argv) {
 		.destination_addr = {0},
         .interval = 1000000,
         .next_send_time = get_time_us(),
-		.socket_fd = -1 ,
+		.socket_fd = -1,
+        .hostname_str = NULL,
 		.destination_str = NULL,
         .ttl = 0,
         .payload_size = PAYLOAD_DEFAULT_SIZE,
@@ -137,6 +138,7 @@ int main(int argc, char** argv) {
     config.send_buffer = malloc(config.payload_size + sizeof(icmp_packet_t));
     memset(config.send_buffer, '\0', config.payload_size + sizeof(icmp_packet_t));
 	init_config(&config);
+    error_if(setvbuf(stdout, NULL, _IOLBF, 0) != 0, "setvbuf error: %s\n", strerror(errno));
     print_message("PING %s (%s): %u data bytes",
         config.hostname_str,
         config.destination_str,

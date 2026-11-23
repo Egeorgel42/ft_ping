@@ -431,6 +431,13 @@ void get_destination_addr(ping_config_t *config) {
 void init_config(ping_config_t *config) {
 	config->socket_fd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	error_if(config->socket_fd == -1, SOCKET_ERR, strerror(errno));
+    int broadcast = true;
+    error_if(setsockopt(config->socket_fd,
+            SOL_SOCKET,
+            SO_BROADCAST,
+            &broadcast,
+            sizeof(broadcast)) < 0,
+        SETSOCKOPT_ERR, "SO_BROADCAST", strerror(errno));
 	if (config->destination_addr.s_addr == 0) {
 		get_destination_addr(config);
 	}

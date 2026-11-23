@@ -8,20 +8,23 @@
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
 
-#define PROGRAM_NAME "ft_ping: "
+#define EXECUTABLE_NAME "ft_ping"
+#define PROGRAM_NAME EXECUTABLE_NAME ": "
 #define PROGRAM_PREFIX_MESSAGE    PROGRAM_NAME __FILE__ ", " STRINGIFY(__LINE__) ": "
 
 #define USAGE_ERR			PROGRAM_NAME "usage error: %s\n"
 #define USAGE_ERR_DEST_REQ  USAGE_ERR, "Destination address required"
+#define USAGE_ERR_MULT_DEST  USAGE_ERR, "multiple destinations specified"
 #define UNKNOWN_NAME_ERR	PROGRAM_NAME "%s: Name or service not known\n"
 #define MISSING_HOST_OP 	PROGRAM_NAME "missing host operand\nTry 'ping --help' for more information.\n"
 #define HELP_MESSAGE \
 "\n\
 Usage:\n\
-    " PROGRAM_NAME " [options] <destination>\n\
+    " EXECUTABLE_NAME " [options] <destination>\n\
 Options:\n\
     -h, -?    Show this help message\n\
     -v        Verbose output\n\
+    --ttl <value>    Set the Time To Live (TTL) value for packets\n\
 \n"
 #define INVALID_OPTION		PROGRAM_NAME "invalid option -- '%c'\n" HELP_MESSAGE
 #define INVALID_STR_OPTION	PROGRAM_NAME "invalid option -- '%s'\n" HELP_MESSAGE
