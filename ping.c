@@ -157,6 +157,56 @@ static void err_transaction(ping_config_t *config, uint8_t *icmp_payload, size_t
     }
 }
 
+static void print_unreachable_error(uint8_t code) {
+    switch (code) {
+        case NETWORK_UNREACHABLE:
+            print_message(NETWORK_UNREACHABLE_ERR);
+            return;
+        case HOST_UNREACHABLE:
+            print_message(HOST_UNREACHABLE_ERR);
+            return;
+        case PROTOCOL_UNREACHABLE:
+            print_message(PROTOCOL_UNREACHABLE_ERR);
+            return;
+        case PORT_UNREACHABLE:
+            print_message(PORT_UNREACHABLE_ERR);
+            return;
+        case FRAGMENTATION_REQUIRED:
+            print_message(FRAGMENTATION_REQUIRED_ERR);
+            return;
+        case SOURCE_ROUTE_FAILED:
+            print_message(SOURCE_ROUTE_FAILED_ERR);
+            return;
+        case NETWORK_UNKNOWN:
+            print_message(NETWORK_UNKNOWN_ERR);
+            return;
+        case HOST_UNKNOWN:
+            print_message(HOST_UNKNOWN_ERR);
+            return;
+        case SOURCE_HOST_ISOLATED:
+            print_message(SOURCE_HOST_ISOLATED_ERR);
+            return;
+        case NETWORK_UNREACHABLE_FOR_TOS:
+            print_message(NETWORK_UNREACHABLE_FOR_TOS_ERR);
+            return;
+        case HOST_UNREACHABLE_FOR_TOS:
+            print_message(HOST_UNREACHABLE_FOR_TOS_ERR);
+            return;
+        case COMMUNICATION_ADMINISTRATIVELY_PROHIBITED:
+            print_message(COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR);
+            return;
+        case HOST_PRECEDENCE_VIOLATION:
+            print_message(HOST_PRECEDENCE_VIOLATION_ERR);
+            return;
+        case PRECEDENCE_CUTOFF_IN_EFFECT:
+            print_message(PRECEDENCE_CUTOFF_IN_EFFECT_ERR);
+            return;
+        default:
+            print_message(UNKNOWN_UNREACHABLE_ERR, code);
+            return;
+    }
+}
+
 void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
     icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
     struct iphdr* ip = (struct iphdr *)buffer;
@@ -170,15 +220,18 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
         return;
     }
     char *rsp_src = addr_to_str(&ip->saddr);
+    print_message("%ld bytes from %s: ",
+        bytes - ((void*)icmp - (void*)buffer),
+        rsp_src);
     switch (icmp->type) {
         case ICMP_UNREACHABLE:
-            print_message(UNREACHABLE_ERR, rsp_src);
+            print_unreachable_error(icmp->code);
             err_transaction(config,
                 (uint8_t *)icmp + sizeof(icmp_packet_t),
                 bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
                 return;
         case ICMP_TIME_EXCEEDED:
-            print_message(TIME_EXCEEDED_ERR, rsp_src);
+            print_message("Time to live exceeded\n");
             err_transaction(config,
                 (uint8_t *)icmp + sizeof(icmp_packet_t),
                 bytes - ((void*)icmp - (void*)ip) - sizeof(icmp_packet_t));
@@ -200,9 +253,7 @@ void process_packet(ping_config_t *config, uint8_t *buffer, size_t bytes) {
         return;
     }
     double time_diff = (double)(get_time_us() - transaction->send_time) / 1000.0;
-    print_message("%ld bytes from %s: icmp_seq=%d ttl=%u time=%.3f ms\n",
-        bytes - ((void*)icmp - (void*)buffer),
-        rsp_src,
+    print_message("icmp_seq=%d ttl=%u time=%.3f ms\n",
         packet_sequence_id,
         ip->ttl,
         time_diff);

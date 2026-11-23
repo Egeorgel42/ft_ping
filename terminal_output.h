@@ -43,6 +43,40 @@ Options:\n\
 #define INET_NTOP_ERR		PROGRAM_PREFIX_MESSAGE "inet_ntop error: %s\n"
 #define SETSOCKOPT_ERR		PROGRAM_PREFIX_MESSAGE "setsockopt(%s) error: %s\n"
 
+#define NETWORK_UNREACHABLE_ERR	        "Destination Net Unreachable\n"
+#define HOST_UNREACHABLE_ERR		    "Destination Host Unreachable\n"
+#define PROTOCOL_UNREACHABLE_ERR	    "Destination Protocol Unreachable\n"
+#define PORT_UNREACHABLE_ERR		    "Destination Port Unreachable\n"
+#define FRAGMENTATION_REQUIRED_ERR	    "Fragmentation needed and DF set\n"
+#define SOURCE_ROUTE_FAILED_ERR	        "Source route failed\n"
+#define NETWORK_UNKNOWN_ERR		        "Destination Network Unknown\n"
+#define HOST_UNKNOWN_ERR		        "Host Unknown\n"
+#define SOURCE_HOST_ISOLATED_ERR	    "Host Isolated\n"
+#define NETWORK_UNREACHABLE_FOR_TOS_ERR	"Destination Network Unreachable At This TOS\n"
+#define HOST_UNREACHABLE_FOR_TOS_ERR	"Destination Host Unreachable At This TOS\n"
+#define COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR	"Packet Filtered\n"
+#define HOST_PRECEDENCE_VIOLATION_ERR	"Precedence Violation\n"
+#define PRECEDENCE_CUTOFF_IN_EFFECT_ERR	"Precedence Cutoff\n"
+#define UNKNOWN_UNREACHABLE_ERR	        "Dest Unreachable, Unknown Code: %d\n"
+
+
+enum unreachable_err_codes {
+    NETWORK_UNREACHABLE = 0,
+    HOST_UNREACHABLE = 1,
+    PROTOCOL_UNREACHABLE = 2,
+    PORT_UNREACHABLE = 3,
+    FRAGMENTATION_REQUIRED = 4,
+    SOURCE_ROUTE_FAILED = 5,
+    NETWORK_UNKNOWN = 6,
+    HOST_UNKNOWN = 7,
+    SOURCE_HOST_ISOLATED = 8,
+    NETWORK_UNREACHABLE_FOR_TOS = 11,
+    HOST_UNREACHABLE_FOR_TOS = 12,
+    COMMUNICATION_ADMINISTRATIVELY_PROHIBITED = 13,
+    HOST_PRECEDENCE_VIOLATION = 14,
+    PRECEDENCE_CUTOFF_IN_EFFECT = 15
+};
+
 #define print_message(format, ...)                  \
     fprintf(stdout, format, ##__VA_ARGS__);
 
