@@ -41,7 +41,7 @@ Options:\n\
 #define INET_NTOP_ERR		PROGRAM_PREFIX_MESSAGE "inet_ntop error: %s\n"
 #define SETSOCKOPT_ERR		PROGRAM_PREFIX_MESSAGE "setsockopt(%s) error: %s\n"
 
-#define UNKNOWN_ICMP_TYPE_ERR	"Unknown ICMP type: %d\n"
+#define UNKNOWN_ICMP_TYPE_ERR	"Bad ICMP type: %d\n"
 #define TIME_EXCEEDED_ERR       "Time to live exceeded\n"
 #define FRAG_REASSEMBLY_TIME_EXCEEDED_ERR	"Frag reassembly time exceeded\n"
 #define UNKNOWN_TIME_EXCEEDED_ERR	"Time exceeded, unknown code: %d\n"
@@ -52,7 +52,7 @@ Options:\n\
 #define PORT_UNREACHABLE_ERR		    "Destination Port Unreachable\n"
 #define FRAGMENTATION_REQUIRED_ERR	    "Fragmentation needed and DF set\n"
 #define SOURCE_ROUTE_FAILED_ERR	        "Source route failed\n"
-#define NETWORK_UNKNOWN_ERR		        "Destination Network Unknown\n"
+#define NETWORK_UNKNOWN_ERR		        "Network Unknown\n"
 #define HOST_UNKNOWN_ERR		        "Host Unknown\n"
 #define SOURCE_HOST_ISOLATED_ERR	    "Host Isolated\n"
 #define NETWORK_UNREACHABLE_FOR_TOS_ERR	"Destination Network Unreachable At This TOS\n"

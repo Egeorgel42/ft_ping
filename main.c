@@ -16,19 +16,6 @@ void handle_sigint(int signal) {
     g_stop = 1;
 }
 
-void find_expired_requests(ping_config_t const* config, circular_buffer_t* buffer) {
-    uint64_t now = get_time_us();
-    for (uint32_t i = 0; i < buffer->buffer_size; i++) {
-        ping_transaction_t const* transaction = read_element_at_index(buffer, i);
-        if (!transaction) {
-            continue;
-        }
-        if (now - transaction->send_time >= config->interval) {
-            pop_element_at_index(buffer, i);
-        }
-    }
-}
-
 static double nabs(double value)
 {
     return value < 0.0 ? -value : value;
@@ -92,7 +79,6 @@ void run_logic(ping_config_t* config) {
         }
         else if (poll_ready == 0) {
             unsent_packet = send_echo_request(config, unsent_packet);
-            find_expired_requests(config, &config->stored_transactions);
         }
         else if (errno == EINTR) {
             continue;

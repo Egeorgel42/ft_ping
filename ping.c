@@ -240,7 +240,7 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
     }
 
     print_message("IP Hdr Dump:\n ");
-    for (size_t i = 0; i < ip_header_length; i++) {
+    for (size_t i = 0; i < sizeof(struct iphdr); i++) {
         print_message("%02x%s",
             ((uint8_t const *)iphdr_payload)[i],
             (i % 2) ? " " : "");
@@ -249,7 +249,7 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
     print_message(
         "\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
     print_message(
-        " %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s\t%s\t",
+        " %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s  %s",
         iphdr_payload->version,
         iphdr_payload->ihl,
         iphdr_payload->tos,
