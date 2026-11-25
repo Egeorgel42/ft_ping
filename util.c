@@ -34,19 +34,18 @@ static void realloc_circular_buffer(circular_buffer_t* buffer) {
     uint64_t const alloc_size = slot_size * buffer->buffer_size * 2;
     buffer->buffer = realloc(buffer->buffer, alloc_size);
     error_if(!buffer->buffer, ALLOC_ERR);
-    buffer->buffer_size = alloc_size;
+    buffer->buffer_size = buffer->buffer_size * 2;
 }
 
 void write_element_at_index(circular_buffer_t* buffer, uint32_t index, void const* element) {
     uint32_t const pos_in_buff = index % buffer->buffer_size;
     uint8_t* slot_addr = buffer->buffer + (buffer->element_size * pos_in_buff);
     bool const is_slot_used = *(bool*)slot_addr;
-    if (BRANCH_UNLIKELY(pos_in_buff == 0 && is_slot_used)) {
+    if (BRANCH_UNLIKELY(is_slot_used)) {
         realloc_circular_buffer(buffer);
         write_element_at_index(buffer, index, element);
         return;
     }
-    error_if(is_slot_used, CIRC_BUFF_WRITE_FULL_SLOT_ERR, index);
     *(bool*)slot_addr = true;
     slot_addr++;
     memcpy(slot_addr, element, buffer->element_size - sizeof(bool));

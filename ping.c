@@ -320,6 +320,7 @@ static void err_transaction(ping_config_t *config,
     print_verbose_error_dump(config, quoted_ip, origin);
     pop_element_at_index(&config->stored_transactions, sequence_id);
 }
+
 void process_packet(ping_config_t *config,
                     uint8_t *buffer,
                     size_t bytes) {
