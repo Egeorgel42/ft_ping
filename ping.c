@@ -150,49 +150,49 @@ parse_ipv4_icmp(const uint8_t *buffer,
 static void print_unreachable_error(uint8_t code) {
     switch (code) {
         case NETWORK_UNREACHABLE:
-            print_error(NETWORK_UNREACHABLE_ERR);
+            print_message(NETWORK_UNREACHABLE_ERR);
             return;
         case HOST_UNREACHABLE:
-            print_error(HOST_UNREACHABLE_ERR);
+            print_message(HOST_UNREACHABLE_ERR);
             return;
         case PROTOCOL_UNREACHABLE:
-            print_error(PROTOCOL_UNREACHABLE_ERR);
+            print_message(PROTOCOL_UNREACHABLE_ERR);
             return;
         case PORT_UNREACHABLE:
-            print_error(PORT_UNREACHABLE_ERR);
+            print_message(PORT_UNREACHABLE_ERR);
             return;
         case FRAGMENTATION_REQUIRED:
-            print_error(FRAGMENTATION_REQUIRED_ERR);
+            print_message(FRAGMENTATION_REQUIRED_ERR);
             return;
         case SOURCE_ROUTE_FAILED:
-            print_error(SOURCE_ROUTE_FAILED_ERR);
+            print_message(SOURCE_ROUTE_FAILED_ERR);
             return;
         case NETWORK_UNKNOWN:
-            print_error(NETWORK_UNKNOWN_ERR);
+            print_message(NETWORK_UNKNOWN_ERR);
             return;
         case HOST_UNKNOWN:
-            print_error(HOST_UNKNOWN_ERR);
+            print_message(HOST_UNKNOWN_ERR);
             return;
         case SOURCE_HOST_ISOLATED:
-            print_error(SOURCE_HOST_ISOLATED_ERR);
+            print_message(SOURCE_HOST_ISOLATED_ERR);
             return;
         case NETWORK_UNREACHABLE_FOR_TOS:
-            print_error(NETWORK_UNREACHABLE_FOR_TOS_ERR);
+            print_message(NETWORK_UNREACHABLE_FOR_TOS_ERR);
             return;
         case HOST_UNREACHABLE_FOR_TOS:
-            print_error(HOST_UNREACHABLE_FOR_TOS_ERR);
+            print_message(HOST_UNREACHABLE_FOR_TOS_ERR);
             return;
         case COMMUNICATION_ADMINISTRATIVELY_PROHIBITED:
-            print_error(COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR);
+            print_message(COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR);
             return;
         case HOST_PRECEDENCE_VIOLATION:
-            print_error(HOST_PRECEDENCE_VIOLATION_ERR);
+            print_message(HOST_PRECEDENCE_VIOLATION_ERR);
             return;
         case PRECEDENCE_CUTOFF_IN_EFFECT:
-            print_error(PRECEDENCE_CUTOFF_IN_EFFECT_ERR);
+            print_message(PRECEDENCE_CUTOFF_IN_EFFECT_ERR);
             return;
         default:
-            print_error(UNKNOWN_UNREACHABLE_ERR, code);
+            print_message(UNKNOWN_UNREACHABLE_ERR, code);
             return;
     }
 }
@@ -200,13 +200,13 @@ static void print_unreachable_error(uint8_t code) {
 static void print_time_exceeded_error(uint8_t code) {
     switch (code) {
         case 0:
-            print_error(TIME_EXCEEDED_ERR);
+            print_message(TIME_EXCEEDED_ERR);
             return;
         case 1:
-            print_error(FRAG_REASSEMBLY_TIME_EXCEEDED_ERR);
+            print_message(FRAG_REASSEMBLY_TIME_EXCEEDED_ERR);
             return;
         default:
-            print_error(UNKNOWN_TIME_EXCEEDED_ERR, code);
+            print_message(UNKNOWN_TIME_EXCEEDED_ERR, code);
             return;
     }
 }
@@ -220,7 +220,7 @@ static void print_transaction_error(icmp_packet_t *icmp_packet) {
             print_time_exceeded_error(icmp_packet->code);
             return;
         default:
-            print_error(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
+            print_message(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
             return;
     }
 }
@@ -241,16 +241,16 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
         return;
     }
 
-    print_error("IP Hdr Dump:\n ");
+    print_message("IP Hdr Dump:\n ");
     for (size_t i = 0; i < sizeof(struct iphdr); i++) {
-        print_error("%02x%s",
+        print_message("%02x%s",
             ((uint8_t const *)iphdr_payload)[i],
             (i % 2) ? " " : "");
     }
 
-    print_error(
+    print_message(
         "\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
-    print_error(
+    print_message(
         " %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s  %s",
         iphdr_payload->version,
         iphdr_payload->ihl,
@@ -266,12 +266,12 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
         destination);
 
     for (size_t i = sizeof(struct iphdr); i < ip_header_length; i++) {
-        print_error("%02x%s",
+        print_message("%02x%s",
             ((uint8_t const *)iphdr_payload)[i],
             ((i + 1) % 2) ? "" : " ");
     }
 
-    print_error(
+    print_message(
         "\nICMP: type %u, code %u, size %zu, id 0x%04x, seq 0x%04x\n",
         icmp_payload->type,
         icmp_payload->code,
@@ -316,7 +316,7 @@ static void err_transaction(ping_config_t *config,
         return;
     }
 
-    print_error("%zu bytes from %s: ",
+    print_message("%zu bytes from %s: ",
         icmp_length,
         addr_to_str(&outer_ip->saddr));
     print_transaction_error(icmp_packet);

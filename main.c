@@ -151,5 +151,5 @@ int main(int argc, char** argv) {
     free_circular_buffer(&config.stored_transactions);
     free(config.destination_str);
     free(config.send_buffer);
-    return 0;
+    return config.response_count == 0;
 }
