@@ -86,8 +86,11 @@ enum unreachable_err_codes {
 #define print_message(format, ...)                  \
     fprintf(stdout, format, ##__VA_ARGS__);
 
+#define print_error(format, ...) \
+    fprintf(stderr, format, ##__VA_ARGS__);
+
 #define error(format, ...) {                       \
-    fprintf(stderr, format, ##__VA_ARGS__);         \
+    print_error(format, ##__VA_ARGS__);         \
     exit(1);                                        \
     COMPILER_UNREACHABLE();                         \
 }

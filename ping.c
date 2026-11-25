@@ -11,6 +11,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+static char* addr_to_str(void const* addr) {
+    static char dest[INET_ADDRSTRLEN];
+    error_if(!inet_ntop(AF_INET, addr, dest, INET_ADDRSTRLEN),
+        INET_NTOP_ERR, strerror(errno));
+    return dest;
+}
+
 static uint32_t fold_checksum(uint32_t sum) {
     while (sum >> 16) {
         sum = (sum & 0xFFFFu) + (sum >> 16);
@@ -91,36 +98,37 @@ bool send_echo_request(ping_config_t *config, bool unsent_packet) {
     return false;
 }
 
-static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
-                            const uint8_t *buffer,
-                           size_t buffer_length) {
+static icmp_packet_t*
+parse_ipv4_icmp(const uint8_t *buffer,
+                size_t buffer_length,
+                struct sockaddr_in const *packet_source) {
     if (buffer_length < sizeof(struct iphdr)){
-        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        print_error(PACKET_TOO_SHORT, buffer_length, addr_to_str(&packet_source->sin_addr));
         return NULL;
     }
     
     struct iphdr *ip = (struct iphdr *)buffer;
 
     if (ip->version != 4) {
-        print_message(VERSION_INVALID);
+        print_error(VERSION_INVALID);
         return NULL;
     }
 
     size_t ip_header_length = ip->ihl * 4;
 
     if (ip_header_length < sizeof(struct iphdr)) {
-        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        print_error(PACKET_TOO_SHORT, buffer_length, addr_to_str(&packet_source->sin_addr));
         return NULL;
     }
     if (buffer_length < ip_header_length + sizeof(icmp_packet_t) || ip_header_length > 60) {
-        print_message(MALFORMED_PACKET, config->destination_str);
+        print_error(MALFORMED_PACKET, addr_to_str(&packet_source->sin_addr));
         return NULL;
     }
 
     uint16_t total_length = ntohs(ip->tot_len);
 
     if (total_length < ip_header_length + sizeof(icmp_packet_t)) {
-        print_message(PACKET_TOO_SHORT, buffer_length, config->destination_str);
+        print_error(PACKET_TOO_SHORT, buffer_length, addr_to_str(&packet_source->sin_addr));
         return NULL;
     }
 
@@ -132,66 +140,59 @@ static icmp_packet_t* parse_ipv4_icmp(ping_config_t *config,
 
     if ((fragment_info & IP_OFFMASK) != 0 ||
         (fragment_info & IP_MF) != 0) {
-        print_message(MALFORMED_PACKET, config->destination_str);
+        print_error(MALFORMED_PACKET, addr_to_str(&packet_source->sin_addr));
         return NULL;
     }
 
     return (icmp_packet_t *)(buffer + ip_header_length);
 }
 
-static char* addr_to_str(void const* addr) {
-    static char dest[INET_ADDRSTRLEN];
-    error_if(!inet_ntop(AF_INET, addr, dest, INET_ADDRSTRLEN),
-        INET_NTOP_ERR, strerror(errno));
-    return dest;
-}
-
 static void print_unreachable_error(uint8_t code) {
     switch (code) {
         case NETWORK_UNREACHABLE:
-            print_message(NETWORK_UNREACHABLE_ERR);
+            print_error(NETWORK_UNREACHABLE_ERR);
             return;
         case HOST_UNREACHABLE:
-            print_message(HOST_UNREACHABLE_ERR);
+            print_error(HOST_UNREACHABLE_ERR);
             return;
         case PROTOCOL_UNREACHABLE:
-            print_message(PROTOCOL_UNREACHABLE_ERR);
+            print_error(PROTOCOL_UNREACHABLE_ERR);
             return;
         case PORT_UNREACHABLE:
-            print_message(PORT_UNREACHABLE_ERR);
+            print_error(PORT_UNREACHABLE_ERR);
             return;
         case FRAGMENTATION_REQUIRED:
-            print_message(FRAGMENTATION_REQUIRED_ERR);
+            print_error(FRAGMENTATION_REQUIRED_ERR);
             return;
         case SOURCE_ROUTE_FAILED:
-            print_message(SOURCE_ROUTE_FAILED_ERR);
+            print_error(SOURCE_ROUTE_FAILED_ERR);
             return;
         case NETWORK_UNKNOWN:
-            print_message(NETWORK_UNKNOWN_ERR);
+            print_error(NETWORK_UNKNOWN_ERR);
             return;
         case HOST_UNKNOWN:
-            print_message(HOST_UNKNOWN_ERR);
+            print_error(HOST_UNKNOWN_ERR);
             return;
         case SOURCE_HOST_ISOLATED:
-            print_message(SOURCE_HOST_ISOLATED_ERR);
+            print_error(SOURCE_HOST_ISOLATED_ERR);
             return;
         case NETWORK_UNREACHABLE_FOR_TOS:
-            print_message(NETWORK_UNREACHABLE_FOR_TOS_ERR);
+            print_error(NETWORK_UNREACHABLE_FOR_TOS_ERR);
             return;
         case HOST_UNREACHABLE_FOR_TOS:
-            print_message(HOST_UNREACHABLE_FOR_TOS_ERR);
+            print_error(HOST_UNREACHABLE_FOR_TOS_ERR);
             return;
         case COMMUNICATION_ADMINISTRATIVELY_PROHIBITED:
-            print_message(COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR);
+            print_error(COMMUNICATION_ADMINISTRATIVELY_PROHIBITED_ERR);
             return;
         case HOST_PRECEDENCE_VIOLATION:
-            print_message(HOST_PRECEDENCE_VIOLATION_ERR);
+            print_error(HOST_PRECEDENCE_VIOLATION_ERR);
             return;
         case PRECEDENCE_CUTOFF_IN_EFFECT:
-            print_message(PRECEDENCE_CUTOFF_IN_EFFECT_ERR);
+            print_error(PRECEDENCE_CUTOFF_IN_EFFECT_ERR);
             return;
         default:
-            print_message(UNKNOWN_UNREACHABLE_ERR, code);
+            print_error(UNKNOWN_UNREACHABLE_ERR, code);
             return;
     }
 }
@@ -199,13 +200,13 @@ static void print_unreachable_error(uint8_t code) {
 static void print_time_exceeded_error(uint8_t code) {
     switch (code) {
         case 0:
-            print_message(TIME_EXCEEDED_ERR);
+            print_error(TIME_EXCEEDED_ERR);
             return;
         case 1:
-            print_message(FRAG_REASSEMBLY_TIME_EXCEEDED_ERR);
+            print_error(FRAG_REASSEMBLY_TIME_EXCEEDED_ERR);
             return;
         default:
-            print_message(UNKNOWN_TIME_EXCEEDED_ERR, code);
+            print_error(UNKNOWN_TIME_EXCEEDED_ERR, code);
             return;
     }
 }
@@ -219,7 +220,7 @@ static void print_transaction_error(icmp_packet_t *icmp_packet) {
             print_time_exceeded_error(icmp_packet->code);
             return;
         default:
-            print_message(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
+            print_error(UNKNOWN_ICMP_TYPE_ERR, icmp_packet->type);
             return;
     }
 }
@@ -227,7 +228,8 @@ static void print_transaction_error(icmp_packet_t *icmp_packet) {
 static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_payload, icmp_packet_t *icmp_payload) {
     if (!(config->mode & PING_VERBOSE)) {
         return;
-    } size_t ip_header_length = iphdr_payload->ihl * 4;
+    }
+    size_t ip_header_length = iphdr_payload->ihl * 4;
     uint16_t fragment_info = ntohs(iphdr_payload->frag_off);
     char source[INET_ADDRSTRLEN];
     char destination[INET_ADDRSTRLEN];
@@ -239,16 +241,16 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
         return;
     }
 
-    print_message("IP Hdr Dump:\n ");
+    print_error("IP Hdr Dump:\n ");
     for (size_t i = 0; i < sizeof(struct iphdr); i++) {
-        print_message("%02x%s",
+        print_error("%02x%s",
             ((uint8_t const *)iphdr_payload)[i],
             (i % 2) ? " " : "");
     }
 
-    print_message(
+    print_error(
         "\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
-    print_message(
+    print_error(
         " %1x  %1x  %02x %04x %04x   %1x %04x  %02x  %02x %04x %s  %s",
         iphdr_payload->version,
         iphdr_payload->ihl,
@@ -264,12 +266,12 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
         destination);
 
     for (size_t i = sizeof(struct iphdr); i < ip_header_length; i++) {
-        print_message("%02x%s",
+        print_error("%02x%s",
             ((uint8_t const *)iphdr_payload)[i],
             ((i + 1) % 2) ? "" : " ");
     }
 
-    print_message(
+    print_error(
         "\nICMP: type %u, code %u, size %zu, id 0x%04x, seq 0x%04x\n",
         icmp_payload->type,
         icmp_payload->code,
@@ -281,7 +283,8 @@ static void print_verbose_error_dump(ping_config_t *config, struct iphdr *iphdr_
 static void err_transaction(ping_config_t *config,
                             struct iphdr const *outer_ip,
                             icmp_packet_t *icmp_packet,
-                            size_t icmp_length) {
+                            size_t icmp_length,
+                            struct sockaddr_in const *packet_source) {
     if (icmp_length < sizeof(*icmp_packet)) {
         return;
     }
@@ -290,7 +293,7 @@ static void err_transaction(ping_config_t *config,
     size_t quoted_length = icmp_length - sizeof(*icmp_packet);
 
     icmp_packet_t *origin =
-        parse_ipv4_icmp(config, quoted_ip_bytes, quoted_length);
+        parse_ipv4_icmp(quoted_ip_bytes, quoted_length, packet_source);
     if (origin == NULL) {
         return;
     }
@@ -313,7 +316,7 @@ static void err_transaction(ping_config_t *config,
         return;
     }
 
-    print_message("%zu bytes from %s: ",
+    print_error("%zu bytes from %s: ",
         icmp_length,
         addr_to_str(&outer_ip->saddr));
     print_transaction_error(icmp_packet);
@@ -323,8 +326,9 @@ static void err_transaction(ping_config_t *config,
 
 void process_packet(ping_config_t *config,
                     uint8_t *buffer,
-                    size_t bytes) {
-    icmp_packet_t *icmp = parse_ipv4_icmp(config, buffer, bytes);
+                    size_t bytes,
+                    struct sockaddr_in const *packet_source) {
+    icmp_packet_t *icmp = parse_ipv4_icmp(buffer, bytes, packet_source);
     struct iphdr *ip = (struct iphdr *)buffer;
 
     if (icmp == NULL) {
@@ -333,7 +337,7 @@ void process_packet(ping_config_t *config,
 
     uint16_t total_length = ntohs(ip->tot_len);
     if (total_length > bytes) {
-        print_message(MALFORMED_PACKET, config->destination_str);
+        print_error(MALFORMED_PACKET, addr_to_str(&packet_source->sin_addr));
         return;
     }
 
@@ -341,7 +345,7 @@ void process_packet(ping_config_t *config,
     size_t icmp_length = total_length - ip_header_length;
 
     if (!verify_checksum(icmp, icmp_length)) {
-        print_message("checksum mismatch from %s\n",
+        print_error("checksum mismatch from %s\n",
             addr_to_str(&ip->saddr));
         return;
     }
@@ -349,7 +353,7 @@ void process_packet(ping_config_t *config,
         return;
     }
     if (icmp->type != ICMP_ECHO_REPLY) {
-        err_transaction(config, ip, icmp, icmp_length);
+        err_transaction(config, ip, icmp, icmp_length, packet_source);
         return;
     }
 
@@ -391,20 +395,23 @@ void process_packet(ping_config_t *config,
 void read_and_process_packets(ping_config_t *config)
 {
     static uint8_t buffer[MAX_READ_SIZE];
+    struct sockaddr_in source_addr;
+    socklen_t source_len = sizeof(source_addr);
+
     while (true) {
         ssize_t bytes = recvfrom(config->socket_fd,
                                  buffer,
                                  sizeof(buffer),
                                  0,
-                                 NULL,
-                                 NULL);
+                                 (struct sockaddr *)&source_addr,
+                                 &source_len);
 
         if (BRANCH_UNLIKELY(bytes == -1 &&
             (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))) {
             return;
         }
         error_if(bytes == -1, RECVFROM_ERR, strerror(errno));
-        process_packet(config, buffer, bytes);
+        process_packet(config, buffer, bytes, &source_addr);
     }
 }
 
