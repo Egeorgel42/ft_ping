@@ -55,24 +55,35 @@ void run_logic(ping_config_t* config) {
         .fd = config->socket_fd,
         .events = POLLIN | POLLOUT
     };
+
+    if (config->deadline) {
+        config->deadline += get_time_us();
+    }
     while (!g_stop) {
         int timeout;
         int64_t buf = (int64_t)config->next_send_time - (int64_t)get_time_us();
         if (buf < 0) {
-            timeout = 0;
-        } else {
-            buf = buf / 1000;
-            if (buf > INT_MAX) {
-                timeout = INT_MAX;
-            } else {
-                timeout = (int)buf;
-            }
+            buf = 0;
+        } else if (config->deadline && (int64_t)config->deadline - (int64_t)get_time_us() < buf) {
+            buf = (int64_t)config->deadline - (int64_t)get_time_us();
         }
+
+        buf = (buf + 999) / 1000;
+        if (buf > INT_MAX) {
+            timeout = INT_MAX;
+        } else {
+            timeout = (int)buf;
+        }
+
         struct pollfd fds = unsent_packet ? fds_unsent_packet : fds_reading;
         poll_ready = poll(&fds, 1, timeout);
 
         if (poll_ready > 0 && fds.revents & POLLIN) {
             read_and_process_packets(config);
+        }
+        
+        if (config->deadline && get_time_us() >= config->deadline) {
+            break;
         }
         if (poll_ready > 0 && fds.revents & POLLOUT) {
             unsent_packet = send_echo_request(config, unsent_packet);
@@ -84,6 +95,23 @@ void run_logic(ping_config_t* config) {
             continue;
         }
         error_if(poll_ready == -1, POLL_ERROR, strerror(errno));
+    }
+    if (!g_stop && config->wait_time) {
+        config->wait_time += get_time_us();
+    }
+    while (!g_stop && config->response_count < config->sequence_count) {
+        int64_t remaining = (int64_t)(config->wait_time - get_time_us());
+        if (remaining <= 0) {
+            break;
+        }
+        poll_ready = poll(&fds_reading, 1, (int)(remaining / 1000) + 1);
+        if (poll_ready > 0 && fds_reading.revents & POLLIN) {
+            read_and_process_packets(config);
+        } else if (poll_ready == 0) {
+            break;
+        }
+        error_if(poll_ready == -1 && errno != EINTR,
+            POLL_ERROR, strerror(errno));
     }
     if (config->sequence_count == 0) {
         return;
@@ -124,6 +152,9 @@ int main(int argc, char** argv) {
 		.destination_str = NULL,
         .ttl = 0,
         .payload_size = PAYLOAD_DEFAULT_SIZE,
+        .bypass_routing = false,
+        .deadline = 0,
+        .wait_time = 0,
         .min_time = DBL_MAX,
         .max_time = 0,
         .sum_time = 0,

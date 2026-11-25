@@ -23,6 +23,49 @@ static void set_verbose_mode(ping_config_t *config, char const* arg) {
     config->mode = config->mode | PING_VERBOSE;
 }
 
+static void set_numeric_mode(ping_config_t *config, char const* arg) {
+    (void)arg;
+    config->mode = config->mode | PING_NUMERIC;
+}
+
+static void set_bypass_routing(ping_config_t *config, char const* arg) {
+    (void)arg;
+    config->bypass_routing = true;
+}
+
+static uint32_t parse_numeric_arg(char const *arg, char const *flag,
+                                  uint32_t min, uint32_t max) {
+    uint32_t value = 0;
+    error_if(!arg[0], PROGRAM_NAME "-%s: an argument is required\n", flag);
+    for (uint32_t i = 0; arg[i]; i++) {
+        error_if(arg[i] < '0' || arg[i] > '9',
+            PROGRAM_NAME "-%s: Only numeric characters are accepted as argument.\n", flag);
+        error_if(value > (max - (uint32_t)(arg[i] - '0')) / 10,
+            PROGRAM_NAME "-%s: parameter is not within expected range [%u-%u]\n",
+            flag, min, max);
+        value = value * 10u + (uint32_t)(arg[i] - '0');
+    }
+    error_if(value < min,
+        PROGRAM_NAME "-%s: parameter is not within expected range [%u-%u]\n",
+        flag, min, max);
+    return value;
+}
+
+static void set_deadline(ping_config_t *config, char const *arg) {
+    config->deadline = 
+		(uint64_t)parse_numeric_arg(arg, "w", 1, 86400)  * 1000000u;
+}
+
+static void set_wait_time(ping_config_t *config, char const *arg) {
+    config->wait_time =
+        (uint64_t)parse_numeric_arg(arg, "W", 1, 86400) * 1000000u;
+}
+
+static void set_payload_size(ping_config_t *config, char const *arg) {
+    /* 65535 (max IPv4 packet) - 20 (IPv4 header) - 8 (ICMP header) */
+    config->payload_size = parse_numeric_arg(arg, "s", 0, 65507);
+}
+
 static void set_ttl(ping_config_t *config, char const *arg) {
 	int32_t buff = 0;
 	for (uint32_t i = 0; arg[i]; i++) {
@@ -64,6 +107,11 @@ static char** parse_char_flag(char** current_argv, ping_config_t* config) {
         {"h", false, print_help}, //flag, has_arg, flag_function
         {"?", false, print_help},
         {"v", false, set_verbose_mode},
+        {"n", false, set_numeric_mode},
+        {"r", false, set_bypass_routing},
+        {"w", true, set_deadline},
+        {"W", true, set_wait_time},
+        {"s", true, set_payload_size},
         {NULL, false, NULL}
     };
 

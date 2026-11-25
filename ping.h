@@ -35,6 +35,7 @@ typedef enum {
 
 typedef enum {
     PING_VERBOSE = MODE_DEF(0),
+    PING_NUMERIC = MODE_DEF(1),
 } ping_mode_e;
 
 typedef struct {
@@ -51,6 +52,9 @@ typedef struct {
 	int 		        socket_fd;
     uint32_t            payload_size;
     int                 ttl;
+    bool                bypass_routing;
+    uint64_t            deadline;
+    uint64_t            wait_time;
     uint32_t            response_count;
     double              min_time;
     double              max_time;

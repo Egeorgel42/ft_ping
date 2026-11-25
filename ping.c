@@ -446,6 +446,15 @@ void init_config(ping_config_t *config) {
             &broadcast,
             sizeof(broadcast)) < 0,
         SETSOCKOPT_ERR, "SO_BROADCAST", strerror(errno));
+    if (config->bypass_routing) {
+        int dont_route = true;
+        error_if(setsockopt(config->socket_fd,
+                SOL_SOCKET,
+                SO_DONTROUTE,
+                &dont_route,
+                sizeof(dont_route)) < 0,
+            SETSOCKOPT_ERR, "SO_DONTROUTE", strerror(errno));
+    }
 	if (config->destination_addr.s_addr == 0) {
 		get_destination_addr(config);
 	}

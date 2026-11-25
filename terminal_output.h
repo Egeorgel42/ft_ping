@@ -24,6 +24,11 @@ Usage:\n\
 Options:\n\
     -h, -?    Show this help message\n\
     -v        Verbose output\n\
+    -n        Numeric output only (no reverse DNS resolution)\n\
+    -r        Bypass the normal routing tables\n\
+    -w <sec>  Stop after <sec> seconds, regardless of packets sent/received\n\
+    -W <sec>  Time to wait for responses after the last packet is sent\n\
+    -s <size> Number of data bytes to send (default 56, max 65507)\n\
     --ttl <value>    Set the Time To Live (TTL) value for packets\n\
 \n"
 #define INVALID_OPTION		PROGRAM_NAME "invalid option -- '%c'\n" HELP_MESSAGE
