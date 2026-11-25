@@ -29,12 +29,19 @@ circular_buffer_t create_circular_buffer(uint32_t element_size, uint32_t buffer_
     return buffer;
 }
 
-static void realloc_circular_buffer(circular_buffer_t* buffer) {
-    uint32_t const slot_size = buffer->element_size;
-    uint64_t const alloc_size = slot_size * buffer->buffer_size * 2;
-    buffer->buffer = realloc(buffer->buffer, alloc_size);
-    error_if(!buffer->buffer, ALLOC_ERR);
-    buffer->buffer_size = buffer->buffer_size * 2;
+static void realloc_circular_buffer(circular_buffer_t *buffer) {
+    uint32_t const old_slot_count = buffer->buffer_size;
+    uint32_t const new_slot_count = old_slot_count * 2;
+    size_t const slot_size = buffer->element_size;
+    size_t const old_size = slot_size * old_slot_count;
+    size_t const new_size = slot_size * new_slot_count;
+
+    uint8_t *new_buffer = realloc(buffer->buffer, new_size);
+    error_if(!new_buffer, ALLOC_ERR);
+
+    memset(new_buffer + old_size, 0, new_size - old_size);
+    buffer->buffer = new_buffer;
+    buffer->buffer_size = new_slot_count;
 }
 
 void write_element_at_index(circular_buffer_t* buffer, uint32_t index, void const* element) {

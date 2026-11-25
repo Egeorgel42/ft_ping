@@ -28,7 +28,7 @@ static void set_ttl(ping_config_t *config, char const *arg) {
 	for (uint32_t i = 0; arg[i]; i++) {
 		error_if(arg[i] < '0' || arg[i] > '9', USAGE_ERR, "--ttl: Only numeric characters are accepted as argument.");
 		buff = buff * 10u + (arg[i] - '0');
-		error_if(buff < 0, USAGE_ERR, "--ttl: parameter is not within expected range [1-255]");
+		error_if(buff > 255, USAGE_ERR, "--ttl: parameter is not within expected range [1-255]");
 	}
 	error_if(buff < 1 || buff > 255, USAGE_ERR, "--ttl: parameter is not within expected range [1-255]");
 	config->ttl = buff;

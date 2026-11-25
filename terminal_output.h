@@ -16,7 +16,7 @@
 #define USAGE_ERR_DEST_REQ  USAGE_ERR, "Destination address required"
 #define USAGE_ERR_MULT_DEST  USAGE_ERR, "multiple destinations specified"
 #define UNKNOWN_NAME_ERR	PROGRAM_NAME "%s: Name or service not known\n"
-#define MISSING_HOST_OP 	PROGRAM_NAME "missing host operand\nTry 'ping --help' for more information.\n"
+#define MISSING_HOST_OP 	PROGRAM_NAME "missing host operand\nTry 'ping -h' for more information.\n"
 #define HELP_MESSAGE \
 "\n\
 Usage:\n\
