@@ -2,6 +2,7 @@
 #include "terminal_output.h"
 
 #include <errno.h>
+#include <stddef.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
@@ -56,9 +57,6 @@ icmp_packet_t create_echo_request(ping_config_t *config) {
     packet.process_id = htons(config->process_id);
     packet.sequence_id = htons(config->sequence_count++);
     packet.checksum = 0;
-    packet.checksum = htons(get_checksum(&packet, sizeof(packet)));
-    libassert(verify_checksum(&packet, sizeof(packet)),
-		"create_echo_request: invalid get/verify checksum parallel");
     return packet;
 }
 
@@ -74,6 +72,13 @@ bool send_echo_request(ping_config_t *config, bool unsent_packet) {
         packet = create_echo_request(config);
     }
     memcpy(config->send_buffer, &packet, sizeof(packet));
+    uint16_t checksum = htons(get_checksum(config->send_buffer,
+        sizeof(packet) + config->payload_size));
+    memcpy(config->send_buffer + offsetof(icmp_packet_t, checksum),
+        &checksum, sizeof(checksum));
+    libassert(verify_checksum(config->send_buffer,
+        sizeof(packet) + config->payload_size),
+		"send_echo_request: invalid get/verify checksum parallel");
     ssize_t sent_bytes = sendto(
         config->socket_fd,
         config->send_buffer,
